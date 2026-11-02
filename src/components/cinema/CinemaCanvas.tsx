@@ -1,5 +1,6 @@
 'use client';
 
+import '@/lib/suppressThreeWarnings';
 import React, { Suspense, useRef, useState, useCallback, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraMode } from './CinemaCameraController';

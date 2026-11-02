@@ -70,3 +70,23 @@ if (fs.existsSync(cjsHtmlPath)) {
     console.log('[patch-drei] CJS already up to date');
   }
 }
+
+// 3. Patch THREE.Clock deprecation warning
+const threeFilesToPatch = [
+  path.resolve(__dirname, '../node_modules/three/src/core/Clock.js'),
+  path.resolve(__dirname, '../node_modules/three/build/three.core.js'),
+  path.resolve(__dirname, '../node_modules/three/build/three.module.js'),
+  path.resolve(__dirname, '../node_modules/three/build/three.cjs'),
+];
+
+threeFilesToPatch.forEach((filePath) => {
+  if (fs.existsSync(filePath)) {
+    let content = fs.readFileSync(filePath, 'utf8');
+    const warnPattern = /warn\(\s*['"]Clock: This module has been deprecated\. Please use THREE\.Timer instead\.['"]\s*\);(\s*\/\/\s*@deprecated,\s*r183)?/g;
+    if (warnPattern.test(content)) {
+      content = content.replace(warnPattern, '// warn clock deprecated (suppressed)');
+      fs.writeFileSync(filePath, content, 'utf8');
+      console.log(`[patch-three] Successfully silenced Clock deprecation in ${path.basename(filePath)}`);
+    }
+  }
+});
