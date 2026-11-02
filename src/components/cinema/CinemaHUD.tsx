@@ -83,6 +83,7 @@ interface CinemaHUDProps {
 
   roomName?: string;
   onOpenRoomList?: () => void;
+  onOpenAdminLogin?: () => void;
   onSetCameraPreset: (preset: CameraPreset) => void;
   onOpenSeatMap: () => void;
   onOpenAddVideo: () => void;
@@ -187,6 +188,7 @@ export function CinemaHUD({
   isAdmin = false,
   roomName,
   onOpenRoomList,
+  onOpenAdminLogin,
   onSetCameraPreset,
   onOpenSeatMap,
   onOpenAddVideo,
@@ -468,8 +470,30 @@ export function CinemaHUD({
           </div>
         </div>
 
-        {/* Phải: toàn màn hình, âm thanh, ẩn UI, avatar */}
-        <div className={`pointer-events-auto flex items-center gap-1 rounded-2xl p-1 ${glass}`}>
+        {/* Phải: nút Quản trị Admin, toàn màn hình, âm thanh, ẩn UI, avatar */}
+        <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl p-1 ${glass}`}>
+          {/* Nút Admin riêng biệt */}
+          <button
+            id="hud-admin-button"
+            type="button"
+            onClick={onOpenAdminLogin}
+            title={
+              isAdmin
+                ? 'Bạn đang là Quản trị viên (Host) - Bấm để quản lý hoặc đăng xuất'
+                : 'Đăng nhập Quản trị viên để đổi phim và điều khiển rạp'
+            }
+            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-bold transition active:scale-95 ${
+              isAdmin
+                ? 'bg-amber-400 text-black shadow-[0_0_15px_rgba(251,191,36,0.5)] hover:bg-amber-300'
+                : 'border border-amber-400/40 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
+            }`}
+          >
+            <Crown className={`h-3.5 w-3.5 ${isAdmin ? 'text-black fill-black' : 'text-amber-400'}`} />
+            <span className="hidden sm:inline">{isAdmin ? 'Quản trị viên' : 'Admin'}</span>
+          </button>
+
+          <span className="h-5 w-px bg-white/10 mx-0.5" />
+
           <button type="button" onClick={toggleFullscreen} className={iconBtn} title="Toàn màn hình">
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>

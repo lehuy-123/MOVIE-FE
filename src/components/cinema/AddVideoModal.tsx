@@ -12,6 +12,7 @@ interface AddVideoModalProps {
   onAddVideo: (videoId: string, title?: string) => void;
   onRequestVideo?: (videoId: string, title?: string) => void;
   onManageQueue?: (action: 'play' | 'remove', requestId?: string, videoId?: string, videoTitle?: string) => void;
+  onOpenAdminLogin?: () => void;
 }
 
 export function extractYouTubeId(urlOrId: string): string | null {
@@ -37,6 +38,7 @@ export function AddVideoModal({
   onAddVideo,
   onRequestVideo,
   onManageQueue,
+  onOpenAdminLogin,
 }: AddVideoModalProps) {
   const [url, setUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
@@ -112,6 +114,26 @@ export function AddVideoModal({
             </p>
           </div>
         </div>
+
+        {/* Banner dành cho Quản trị viên nếu chưa đăng nhập */}
+        {!isAdmin && onOpenAdminLogin && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3.5 py-2.5 text-xs text-amber-200">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>Bạn là Quản trị viên của rạp?</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenAdminLogin();
+              }}
+              className="rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-black hover:bg-amber-300 transition shrink-0 active:scale-95 shadow-md shadow-amber-400/20"
+            >
+              Đăng nhập Admin
+            </button>
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-2xl border border-white/5 mb-4 text-xs font-bold">

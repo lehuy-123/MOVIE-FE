@@ -14,6 +14,8 @@ import {
 } from '@/types/socket';
 import { ScreenMeshHandle } from '@/components/cinema/ScreenMesh';
 
+const ADMIN_TOKEN_KEY = 'wetube-cine:admin-token';
+
 interface UseSocketSyncOptions {
   serverUrl?: string;
   roomId?: string;
@@ -44,12 +46,11 @@ export function useSocketSync({
   const [activeBubbles, setActiveBubbles] = useState<ChatMessage[]>([]);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
-  // Current user is Admin if room host matches socketId or users array marks them admin
+  // Current user is Admin ONLY if room host matches socketId or users array marks them admin
   const isHost = Boolean(
     socketId &&
       (roomState?.hostId === socketId ||
-        users.find((u) => u.socketId === socketId)?.isAdmin ||
-        users.length <= 1)
+        users.find((u) => u.socketId === socketId)?.isAdmin)
   );
 
   // Flag to avoid feedback loops from local user actions
@@ -127,11 +128,17 @@ export function useSocketSync({
       setIsConnected(true);
       setSocketId(socket.id || null);
 
-      // Join cinema room immediately upon connection
+      // Join cinema room immediately upon connection (gửi kèm adminToken nếu đã đăng nhập trước đó)
       const activeNick = nicknameRef.current || (typeof window !== 'undefined' ? localStorage.getItem('cinema_nickname') || undefined : undefined);
+      let savedAdminToken: string | undefined;
+      try {
+        savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
+      } catch {}
+
       socket.emit('join-room', {
         roomId,
         nickname: activeNick,
+        adminToken: savedAdminToken,
       });
     });
 
@@ -338,6 +345,36 @@ export function useSocketSync({
     []
   );
 
+  const adminLogin = useCallback(
+    (username: string, password: string): Promise<{ ok: boolean; message?: string }> => {
+      return new Promise((resolve) => {
+        if (!socketRef.current) {
+          return resolve({ ok: false, message: 'Chưa kết nối tới máy chủ.' });
+        }
+        socketRef.current.emit('admin-login', { username, password }, (res) => {
+          if (res?.ok && res.token) {
+            try {
+              localStorage.setItem(ADMIN_TOKEN_KEY, res.token);
+            } catch {}
+          }
+          resolve(res || { ok: false });
+        });
+      });
+    },
+    []
+  );
+
+  const adminLogout = useCallback(() => {
+    let token: string | undefined;
+    try {
+      token = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+    } catch {}
+    if (socketRef.current) {
+      socketRef.current.emit('admin-logout', { adminToken: token });
+    }
+  }, []);
+
   const claimAdmin = useCallback((key?: string) => {
     if (!socketRef.current) return;
     socketRef.current.emit('claim-admin', { key });
@@ -350,9 +387,14 @@ export function useSocketSync({
       (typeof window !== 'undefined'
         ? localStorage.getItem('cinema_nickname') || undefined
         : undefined);
+    let savedAdminToken: string | undefined;
+    try {
+      savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
+    } catch {}
     socketRef.current.emit('switch-room', {
       newRoomId,
       nickname: activeNick,
+      adminToken: savedAdminToken,
     });
   }, []);
 
@@ -412,6 +454,9 @@ export function useSocketSync({
     users,
     queue,
     isHost,
+    isAdmin: isHost,
+    adminLogin,
+    adminLogout,
     activeBubbles,
     addBubble,
     chatHistory,

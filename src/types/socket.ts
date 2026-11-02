@@ -66,10 +66,12 @@ export interface VideoSyncPayload {
 }
 
 export interface ClientToServerEvents {
-  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
-  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
+  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; adminToken?: string }) => void;
+  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; adminToken?: string }) => void;
   'get-rooms': () => void;
   'create-room': (payload: { roomId: string; name: string }) => void;
+  'admin-login': (payload: { username?: string; password?: string }, ack?: (res: { ok: boolean; token?: string; message?: string }) => void) => void;
+  'admin-logout': (payload?: { adminToken?: string }, ack?: (res: { ok: boolean }) => void) => void;
   'user-play': (payload: { timestamp: number }) => void;
   'user-pause': (payload: { timestamp: number }) => void;
   'user-seek': (payload: { timestamp: number }) => void;

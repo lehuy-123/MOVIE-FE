@@ -11,6 +11,7 @@ import { TicketModal } from './TicketModal';
 import { SeatMapModal } from './SeatMapModal';
 import { AddVideoModal } from './AddVideoModal';
 import { RoomListModal } from './RoomListModal';
+import { AdminLoginModal } from './AdminLoginModal';
 import { useSocketSync } from '@/hooks/useSocketSync';
 import { YouTubePlayerControls } from '@/types/youtube';
 import { SeatData, UserProfile, DEFAULT_SHIRT_COLOR } from '@/types/cinema';
@@ -95,6 +96,7 @@ export default function CinemaCanvas({
   const [isSeatMapModalOpen, setIsSeatMapModalOpen] = useState(false);
   const [isSeatMapOnboarding, setIsSeatMapOnboarding] = useState(false);
   const [isAddVideoModalOpen, setIsAddVideoModalOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
   const screenRef = useRef<CinemaScreenOverlayHandle | null>(null);
 
@@ -130,6 +132,9 @@ export default function CinemaCanvas({
     users,
     queue,
     isHost,
+    isAdmin,
+    adminLogin,
+    adminLogout,
     activeBubbles,
     addBubble,
     chatHistory,
@@ -396,6 +401,7 @@ export default function CinemaCanvas({
         cameraMode={cameraMode}
         roomName={roomState?.name || (roomId === 'cinema-01' ? 'Rạp 01 · IMAX Star' : `Rạp ${roomId}`)}
         onOpenRoomList={() => setIsRoomListModalOpen(true)}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
         onSetCameraPreset={handleCameraPreset}
         onOpenSeatMap={openSeatMap}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
@@ -444,20 +450,21 @@ export default function CinemaCanvas({
         </Canvas>
       </CinemaErrorBoundary>
 
-      {/* 6. Onboarding 3 bước: Vé vào rạp → Tạo nhân vật → Chọn ghế */}
+      {/* 6. Onboarding 2 bước: Nhập tên & Áo → Chọn ghế */}
       {isTicketModalOpen && (
         <TicketModal
           isOpen={isTicketModalOpen}
           mode={ticketMode}
           onClose={() => setIsTicketModalOpen(false)}
           onComplete={handleProfileUpdate}
+          onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
           initialNickname={userProfile.nickname}
           initialGender={userProfile.gender}
           initialColor={userProfile.shirtColor}
         />
       )}
 
-      {/* Bước 3 — Sơ đồ ghế 100 chỗ */}
+      {/* Bước 2 — Sơ đồ ghế 100 chỗ */}
       <SeatMapModal
         isOpen={isSeatMapModalOpen}
         isOnboarding={isSeatMapOnboarding}
@@ -476,6 +483,7 @@ export default function CinemaCanvas({
         onAddVideo={handleAddVideo}
         onRequestVideo={handleRequestVideo}
         onManageQueue={sendAdminManageQueue}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
       />
 
       {/* Danh Sách Rạp Chiếu Phim Theo Thứ Tự (Rạp 01, Rạp 02, Rạp 03...) */}
@@ -486,6 +494,16 @@ export default function CinemaCanvas({
         onClose={() => setIsRoomListModalOpen(false)}
         onSelectRoom={handleSelectRoom}
         onCreateRoom={createRoom}
+      />
+
+      {/* Modal Đăng Nhập Quản Trị Viên (Admin) */}
+      <AdminLoginModal
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
+        isAdmin={isAdmin}
+        onLogin={adminLogin}
+        onLogout={adminLogout}
+        onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
       />
     </div>
   );
