@@ -85,7 +85,7 @@ export function TicketModal({
         if (parsed.gender) setGender(parsed.gender);
         if (parsed.shirtColor) setShirtColor(parsed.shirtColor);
       }
-    } catch {}
+    } catch { }
   }, [initialNickname]);
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export function TicketModal({
     try {
       localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
       localStorage.setItem('cinema_nickname', cleanName);
-    } catch {}
+    } catch { }
 
     onComplete(profile);
   };
@@ -133,9 +133,8 @@ export function TicketModal({
 
   return (
     <div
-      className={`wt-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[4px] select-none ${
-        isOnboarding ? 'bg-black/60' : 'bg-black/70'
-      }`}
+      className={`wt-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-[4px] select-none ${isOnboarding ? 'bg-black/60' : 'bg-black/70'
+        }`}
     >
       <div className="wt-card relative max-h-[94vh] w-full max-w-[440px] overflow-y-auto wt-scroll rounded-[28px] border border-white/10 bg-[#121614]/95 p-6 text-white shadow-[0_30px_90px_-20px_rgba(0,0,0,0.9)] backdrop-blur-xl sm:p-8">
         {!isOnboarding && (
@@ -180,11 +179,10 @@ export function TicketModal({
               <div className="relative z-10 h-[48px] w-[50px]">
                 <div className="absolute inset-0 rounded-[22px] bg-[#f1c9a5]" />
                 <div
-                  className={`absolute inset-x-[-2px] top-[-3px] bg-[#3e2513] ${
-                    gender === 'Nữ'
-                      ? 'bottom-[-14px] rounded-[24px_24px_16px_16px]'
-                      : 'bottom-[4px] rounded-[24px_24px_10px_10px]'
-                  }`}
+                  className={`absolute inset-x-[-2px] top-[-3px] bg-[#3e2513] ${gender === 'Nữ'
+                    ? 'bottom-[-14px] rounded-[24px_24px_16px_16px]'
+                    : 'bottom-[4px] rounded-[24px_24px_10px_10px]'
+                    }`}
                 />
               </div>
               {/* Áo */}
@@ -265,11 +263,10 @@ export function TicketModal({
                       role="radio"
                       aria-checked={active}
                       onClick={() => setGender(g)}
-                      className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[12.5px] font-bold transition active:scale-[0.97] ${
-                        active
-                          ? 'border-[#d8f95f]/70 bg-[#d8f95f]/15 text-white'
-                          : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'
-                      }`}
+                      className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[12.5px] font-bold transition active:scale-[0.97] ${active
+                        ? 'border-[#d8f95f]/70 bg-[#d8f95f]/15 text-white'
+                        : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'
+                        }`}
                     >
                       {g}
                       {active && <Check className="h-3.5 w-3.5 text-[#d8f95f]" />}
@@ -293,9 +290,8 @@ export function TicketModal({
                       aria-label={c.label}
                       onClick={() => setShirtColor(c.color)}
                       style={{ backgroundColor: c.color }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full transition hover:scale-110 ${
-                        active ? 'ring-2 ring-white/95 ring-offset-2 ring-offset-[#121614] scale-105' : ''
-                      }`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-full transition hover:scale-110 ${active ? 'ring-2 ring-white/95 ring-offset-2 ring-offset-[#121614] scale-105' : ''
+                        }`}
                     >
                       {active && <Check className="h-3.5 w-3.5 stroke-[3] text-black/75" />}
                     </button>
