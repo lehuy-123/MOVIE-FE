@@ -79,11 +79,11 @@ export interface ClientToServerEvents {
   'request-video': (payload: { videoId: string; videoTitle?: string }) => void;
   'admin-manage-queue': (payload: { action: 'play' | 'remove'; requestId?: string; videoId?: string; videoTitle?: string }) => void;
   'claim-admin': (payload?: { key?: string }) => void;
-  'user-select-seat': (payload: { seatId: string }) => void;
+  'user-select-seat': (payload: { seatId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
   'user-leave-seat': () => void;
   'user-chat': (payload: { message: string }) => void;
   'user-vote-skip': () => void;
-  'user-update-profile': (payload: { nickname: string; avatarColor: string; gender?: 'Nam' | 'Nữ' }) => void;
+  'user-update-profile': (payload: { nickname: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
 }
 
 export interface ServerToClientEvents {

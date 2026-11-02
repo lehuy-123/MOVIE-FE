@@ -194,6 +194,7 @@ export const CinemaScreenOverlay = forwardRef<
         }
       },
       play: () => {
+        setHasStarted(true);
         setLocalPlaying(true);
         postCommand('playVideo');
       },
@@ -330,6 +331,9 @@ export const CinemaScreenOverlay = forwardRef<
                 setLocalPlaying(true);
                 postCommand('playVideo');
                 postCommand('unMute');
+                if (!isPlaying) {
+                  onTogglePlay?.();
+                }
               }}
               style={{
                 position: 'absolute',

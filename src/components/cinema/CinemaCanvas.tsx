@@ -1,7 +1,7 @@
 'use client';
 
 import '@/lib/suppressThreeWarnings';
-import React, { Suspense, useRef, useState, useCallback, useMemo } from 'react';
+import React, { Suspense, useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraMode } from './CinemaCameraController';
 import { OVERVIEW_CAMERA } from '@/lib/roomLayout';
@@ -64,7 +64,7 @@ class CinemaErrorBoundary extends React.Component<
 }
 
 export default function CinemaCanvas({
-  initialVideoId = 'Sx5lJtEs56A', // Default to Rạp 01 movie (Tình Xưa Xa Rồi - Ngọc Lan)
+  initialVideoId = '60ItHLz5WEA', // Default to Rạp 01 movie (Alan Walker - Faded, 100% embeddable globally)
 }: CinemaCanvasProps) {
   // Phòng chiếu hiện tại (mặc định Rạp 01 hoặc lấy từ URL ?room=cinema-01)
   const [roomId, setRoomId] = useState<string>(() => {
@@ -77,7 +77,7 @@ export default function CinemaCanvas({
   const [isRoomListModalOpen, setIsRoomListModalOpen] = useState(false);
 
   const [videoId, setVideoId] = useState(initialVideoId);
-  const [videoTitle, setVideoTitle] = useState('Tình Xưa Xa Rồi - Tiếng Hát Ngọc Lan');
+  const [videoTitle, setVideoTitle] = useState('Alan Walker - Faded');
   // Người dùng chưa có ghế cho tới khi hoàn tất Bước 3 (chọn ghế) của luồng onboarding
   const [selectedSeat, setSelectedSeat] = useState<SeatData | null>(null);
   const [isDimmed] = useState(false);
@@ -151,11 +151,14 @@ export default function CinemaCanvas({
     claimAdmin,
     sendSelectSeat,
     sendLeaveSeat,
+    sendUpdateProfile,
     sendChat,
   } = useSocketSync({
     roomId,
     screenRef,
     nickname: userProfile.nickname,
+    avatarColor: userProfile.shirtColor,
+    gender: userProfile.gender,
     onVideoChange: handleVideoChange,
   });
 
@@ -172,6 +175,16 @@ export default function CinemaCanvas({
     },
     [switchRoom]
   );
+
+  // Tự động khôi phục ghế ngồi của chính mình từ server nếu reconnect hoặc tải lại trang
+  useEffect(() => {
+    if (!socketId || !users.length) return;
+    const me = users.find((u) => u.socketId === socketId);
+    if (me?.seatId && (!selectedSeat || selectedSeat.id !== me.seatId)) {
+      const s = buildSeatData(me.seatId);
+      if (s) setSelectedSeat(s);
+    }
+  }, [users, socketId, selectedSeat]);
 
   // Calculate real-time occupied seats map from connected users
   const occupiedSeats = useMemo(() => {
@@ -237,7 +250,7 @@ export default function CinemaCanvas({
     (seat: SeatData) => {
       setSelectedSeat(seat);
       setUserProfile((prev) => ({ ...prev, seatId: seat.id }));
-      sendSelectSeat(seat.id);
+      sendSelectSeat(seat.id, userProfile.nickname, userProfile.shirtColor, userProfile.gender);
 
       const seatKind = seat.type || getSeatKind(seat.id);
       const label = SEAT_KIND_LABEL[seatKind] || 'Ghế đơn';
@@ -254,7 +267,7 @@ export default function CinemaCanvas({
         5000
       );
     },
-    [sendSelectSeat, addBubble, socketId, userProfile.nickname, userProfile.shirtColor]
+    [sendSelectSeat, addBubble, socketId, userProfile.nickname, userProfile.shirtColor, userProfile.gender]
   );
 
   /** Click ghế ngay trong cảnh 3D → camera trượt vào góc nhìn ngôi thứ nhất. */
@@ -314,17 +327,18 @@ export default function CinemaCanvas({
     [sendRequestVideo]
   );
 
-  /** Bước 2 xong: lưu nhân vật. Nếu đang onboarding thì chuyển sang Bước 3 (chọn ghế). */
+  /** Bước 1 xong: lưu nhân vật & lập tức broadcast profile lên server realtime */
   const handleProfileUpdate = useCallback(
     (profile: UserProfile) => {
       setUserProfile((prev) => ({ ...profile, seatId: prev.seatId, coins: prev.coins }));
+      sendUpdateProfile(profile.nickname, profile.shirtColor, profile.gender);
       setIsTicketModalOpen(false);
       if (ticketMode === 'onboarding') {
         setIsSeatMapOnboarding(true);
         setIsSeatMapModalOpen(true);
       }
     },
-    [ticketMode]
+    [ticketMode, sendUpdateProfile]
   );
 
   const openWardrobe = useCallback(() => {

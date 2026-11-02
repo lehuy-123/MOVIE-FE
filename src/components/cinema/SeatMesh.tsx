@@ -17,7 +17,7 @@ export function SeatMesh({ seat, isSelected, onSelect }: SeatMeshProps) {
   const isOccupied = seat.state === 'occupied';
   const effectiveState = isSelected ? 'selected' : seat.state;
 
-  // Inward arc yaw angle towards center screen
+
   const inwardYaw = -seat.position[0] * 0.025;
 
   // Leather colors
@@ -194,13 +194,12 @@ export function SeatMesh({ seat, isSelected, onSelect }: SeatMeshProps) {
           }}
         >
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap shadow-2xl border backdrop-blur-xl ${
-              isSelected
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap shadow-2xl border backdrop-blur-xl ${isSelected
                 ? 'bg-blue-600/90 text-white border-blue-400 shadow-blue-500/50 ring-2 ring-blue-400/50'
                 : isOccupied
-                ? 'bg-slate-900/90 text-slate-300 border-slate-700'
-                : 'bg-black/90 text-white border-rose-500 shadow-rose-500/40 ring-1 ring-rose-500/40'
-            }`}
+                  ? 'bg-slate-900/90 text-slate-300 border-slate-700'
+                  : 'bg-black/90 text-white border-rose-500 shadow-rose-500/40 ring-1 ring-rose-500/40'
+              }`}
           >
             <span className="font-mono text-sm tracking-wider">{seat.id}</span>
             <span>•</span>
@@ -208,8 +207,8 @@ export function SeatMesh({ seat, isSelected, onSelect }: SeatMeshProps) {
               {isSelected
                 ? 'Ghế của bạn (FPV IMAX)'
                 : isOccupied
-                ? seat.occupiedBy || 'Đang có người'
-                : 'Bấm để ngồi (Góc xem chuẩn)'}
+                  ? seat.occupiedBy || 'Đang có người'
+                  : 'Bấm để ngồi (Góc xem chuẩn)'}
             </span>
           </div>
         </SafeHtml>

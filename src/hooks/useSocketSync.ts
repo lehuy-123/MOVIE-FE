@@ -20,6 +20,8 @@ interface UseSocketSyncOptions {
   serverUrl?: string;
   roomId?: string;
   nickname?: string;
+  avatarColor?: string;
+  gender?: 'Nam' | 'Nữ';
   screenRef: React.RefObject<ScreenMeshHandle | null>;
   onVideoChange?: (videoId: string, title?: string) => void;
   onRoomStateChange?: (state: RoomState) => void;
@@ -29,6 +31,8 @@ export function useSocketSync({
   serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001',
   roomId = 'cinema-main',
   nickname,
+  avatarColor,
+  gender,
   screenRef,
   onVideoChange,
   onRoomStateChange,
@@ -65,6 +69,12 @@ export function useSocketSync({
 
   const nicknameRef = useRef(nickname);
   nicknameRef.current = nickname;
+
+  const avatarColorRef = useRef(avatarColor);
+  avatarColorRef.current = avatarColor;
+
+  const genderRef = useRef(gender);
+  genderRef.current = gender;
 
   /**
    * Helper to synchronize video timestamp and playback state with drift compensation (< 0.5s)
@@ -128,8 +138,24 @@ export function useSocketSync({
       setIsConnected(true);
       setSocketId(socket.id || null);
 
-      // Join cinema room immediately upon connection (gửi kèm adminToken nếu đã đăng nhập trước đó)
-      const activeNick = nicknameRef.current || (typeof window !== 'undefined' ? localStorage.getItem('cinema_nickname') || undefined : undefined);
+      // Join cinema room immediately upon connection (gửi kèm profile & adminToken nếu đã có)
+      let activeNick = nicknameRef.current;
+      let activeColor = avatarColorRef.current;
+      let activeGender = genderRef.current;
+      try {
+        const saved = localStorage.getItem('wetube-cine:profile');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (!activeNick && parsed.nickname) activeNick = parsed.nickname;
+          if (!activeColor && parsed.shirtColor) activeColor = parsed.shirtColor;
+          if (!activeGender && parsed.gender) activeGender = parsed.gender;
+        }
+      } catch {}
+
+      if (!activeNick && typeof window !== 'undefined') {
+        activeNick = localStorage.getItem('cinema_nickname') || undefined;
+      }
+
       let savedAdminToken: string | undefined;
       try {
         savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
@@ -138,6 +164,8 @@ export function useSocketSync({
       socket.emit('join-room', {
         roomId,
         nickname: activeNick,
+        avatarColor: activeColor,
+        gender: activeGender,
         adminToken: savedAdminToken,
       });
     });
@@ -231,15 +259,16 @@ export function useSocketSync({
     };
   }, [serverUrl, roomId]);
 
-  // Update profile without reconnecting if nickname changes
+  // Update profile without reconnecting if nickname or avatarColor changes
   useEffect(() => {
-    if (socketRef.current && isConnected && nickname) {
+    if (socketRef.current && isConnected && (nickname || avatarColor)) {
       socketRef.current.emit('user-update-profile', {
-        nickname,
-        avatarColor: '#3b82f6',
+        nickname: nickname || 'Bạn',
+        avatarColor: avatarColor || '#3b82f6',
+        gender: gender || 'Nam',
       });
     }
-  }, [nickname, isConnected]);
+  }, [nickname, avatarColor, gender, isConnected]);
 
   // Periodic drift check (every 10 seconds) to prevent subtle micro-drift while playing
   useEffect(() => {
@@ -403,10 +432,30 @@ export function useSocketSync({
     socketRef.current.emit('create-room', { roomId: newRoomId, name });
   }, []);
 
-  const sendSelectSeat = useCallback((seatId: string) => {
-    if (!socketRef.current) return;
-    socketRef.current.emit('user-select-seat', { seatId });
-  }, []);
+  const sendSelectSeat = useCallback(
+    (seatId: string, customNick?: string, customColor?: string, customGender?: 'Nam' | 'Nữ') => {
+      if (!socketRef.current) return;
+      socketRef.current.emit('user-select-seat', {
+        seatId,
+        nickname: customNick || nicknameRef.current,
+        avatarColor: customColor || avatarColorRef.current,
+        gender: customGender || genderRef.current,
+      });
+    },
+    []
+  );
+
+  const sendUpdateProfile = useCallback(
+    (newNickname: string, newAvatarColor?: string, newGender?: 'Nam' | 'Nữ') => {
+      if (!socketRef.current) return;
+      socketRef.current.emit('user-update-profile', {
+        nickname: newNickname,
+        avatarColor: newAvatarColor || avatarColorRef.current,
+        gender: newGender || genderRef.current,
+      });
+    },
+    []
+  );
 
   const sendLeaveSeat = useCallback(() => {
     if (!socketRef.current) return;
@@ -472,6 +521,7 @@ export function useSocketSync({
     createRoom,
     sendSelectSeat,
     sendLeaveSeat,
+    sendUpdateProfile,
     sendChat,
   };
 }
