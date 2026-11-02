@@ -15,6 +15,7 @@ import {
 import { ScreenMeshHandle } from '@/components/cinema/ScreenMesh';
 
 const ADMIN_TOKEN_KEY = 'wetube-cine:admin-token';
+const CHAT_HISTORY_KEY = 'wetube-cine:chat-history';
 
 interface UseSocketSyncOptions {
   serverUrl?: string;
@@ -48,7 +49,18 @@ export function useSocketSync({
 
   // 3D Chat bubbles active during their 5-second lifetime
   const [activeBubbles, setActiveBubbles] = useState<ChatMessage[]>([]);
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed.slice(-50);
+        }
+      } catch {}
+    }
+    return [];
+  });
 
   // Current user is Admin ONLY if room host matches socketId or users array marks them admin
   const isHost = Boolean(
@@ -124,11 +136,14 @@ export function useSocketSync({
   applyVideoSyncRef.current = applyVideoSync;
 
   useEffect(() => {
-    // 1. Initialize Socket.io client
+    // 1. Initialize Socket.io client with persistent reconnection
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(serverUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 30000,
     });
 
     socketRef.current = socket;
@@ -138,10 +153,11 @@ export function useSocketSync({
       setIsConnected(true);
       setSocketId(socket.id || null);
 
-      // Join cinema room immediately upon connection (gửi kèm profile & adminToken nếu đã có)
+      // Join cinema room immediately upon connection (gửi kèm profile, seatId & adminToken nếu đã có)
       let activeNick = nicknameRef.current;
       let activeColor = avatarColorRef.current;
       let activeGender = genderRef.current;
+      let activeSeatId: string | null = null;
       try {
         const saved = localStorage.getItem('wetube-cine:profile');
         if (saved) {
@@ -149,6 +165,7 @@ export function useSocketSync({
           if (!activeNick && parsed.nickname) activeNick = parsed.nickname;
           if (!activeColor && parsed.shirtColor) activeColor = parsed.shirtColor;
           if (!activeGender && parsed.gender) activeGender = parsed.gender;
+          if (parsed.seatId) activeSeatId = parsed.seatId;
         }
       } catch {}
 
@@ -166,6 +183,7 @@ export function useSocketSync({
         nickname: activeNick,
         avatarColor: activeColor,
         gender: activeGender,
+        seatId: activeSeatId,
         adminToken: savedAdminToken,
       });
     });
@@ -182,6 +200,18 @@ export function useSocketSync({
       setRoomState(state);
       setUsers(state.users);
       if (state.queue) setQueue(state.queue);
+      if (Array.isArray(state.chatHistory) && state.chatHistory.length > 0) {
+        setChatHistory((prev) => {
+          const map = new Map<string, ChatMessage>();
+          prev.forEach((m) => map.set(m.id, m));
+          state.chatHistory?.forEach((m) => map.set(m.id, m));
+          const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt).slice(-60);
+          try {
+            localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
       onRoomStateChangeRef.current?.(state);
 
       // Sync video ID and title and immediately load it on the screen!
@@ -242,7 +272,13 @@ export function useSocketSync({
 
     // 8. Listen for incoming 3D chat messages (Phase 5)
     socket.on('chat-message', (msg: ChatMessage) => {
-      setChatHistory((prev) => [...prev.slice(-49), msg]);
+      setChatHistory((prev) => {
+        const next = [...prev.slice(-59), msg];
+        try {
+          localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
 
       // Add to active 3D floating bubbles
       setActiveBubbles((prev) => [...prev, msg]);
@@ -253,7 +289,21 @@ export function useSocketSync({
       }, 5000);
     });
 
+    // Khi user chuyển tab rồi quay lại, tự động reconnect nếu socket bị ngủ
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) {
+          console.log('[useSocketSync] Tab visible, reconnecting socket...');
+          socket.connect();
+        } else {
+          socket.emit('get-rooms');
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       socket.disconnect();
       socketRef.current = null;
     };

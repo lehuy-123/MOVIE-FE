@@ -33,12 +33,13 @@ export interface CinemaScreenOverlayProps {
   onReady?: (controls: YouTubePlayerControls) => void;
   onStateChange?: (state: number) => void;
   onTogglePlay?: () => void;
+  onOpenAddVideo?: () => void;
 }
 
 export const CinemaScreenOverlay = forwardRef<
   CinemaScreenOverlayHandle,
   CinemaScreenOverlayProps
->(({ videoId, isPlaying = true, onReady, onStateChange, onTogglePlay }, ref) => {
+>(({ videoId, isPlaying = true, onReady, onStateChange, onTogglePlay, onOpenAddVideo }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -47,13 +48,14 @@ export const CinemaScreenOverlay = forwardRef<
   const [currentId, setCurrentId] = useState(videoId);
   const [localPlaying, setLocalPlaying] = useState(isPlaying);
   const [hasStarted, setHasStarted] = useState(false);
+  const [errorCode, setErrorCode] = useState<number | null>(null);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
 
   // Helper to build YouTube Embed URL with JS API, origin and playsinline
   const buildEmbedUrl = useCallback((id: string, start = 0) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const originParam = origin ? `&origin=${encodeURIComponent(origin)}` : '';
+    const originParam = origin ? `&origin=${encodeURIComponent(origin)}&widget_referrer=${encodeURIComponent(origin)}` : '';
     const startParam = start > 0 ? `&start=${Math.floor(start)}` : '';
     return `https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=1&mute=0&controls=1&rel=0&playsinline=1&iv_load_policy=3${startParam}${originParam}`;
   }, []);
@@ -77,6 +79,7 @@ export const CinemaScreenOverlay = forwardRef<
     if (videoId && videoId !== currentId) {
       setCurrentId(videoId);
       setHasStarted(false);
+      setErrorCode(null);
       postCommand('loadVideoById', [{ videoId, startSeconds: 0 }]);
       postCommand('playVideo');
       if (iframeRef.current) {
@@ -103,6 +106,10 @@ export const CinemaScreenOverlay = forwardRef<
         if (data.event === 'onReady') {
           postCommand('playVideo');
           setHasStarted(true);
+          setErrorCode(null);
+        } else if (data.event === 'onError') {
+          console.warn('[CinemaScreenOverlay] YouTube player error:', data.info);
+          setErrorCode(Number(data.info) || 150);
         } else if (data.event === 'infoDelivery' && data.info) {
           if (typeof data.info.currentTime === 'number') {
             currentTimeRef.current = data.info.currentTime;
@@ -311,6 +318,7 @@ export const CinemaScreenOverlay = forwardRef<
             src={buildEmbedUrl(currentId, 0)}
             title="3D Cinema YouTube Screen"
             onLoad={handleIframeLoad}
+            referrerPolicy="strict-origin-when-cross-origin"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             style={{
@@ -323,8 +331,96 @@ export const CinemaScreenOverlay = forwardRef<
             }}
           />
 
-          {/* Click to start / unmute overlay if autoplay was blocked */}
-          {!hasStarted && (
+          {/* 1. Lỗi YouTube (Bản quyền / Chặn nhúng 150/101 / Video riêng tư 100) */}
+          {errorCode !== null ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(9, 12, 18, 0.96)',
+                backdropFilter: 'blur(10px)',
+                zIndex: 20,
+                color: '#fff',
+                padding: '40px',
+                textAlign: 'center',
+                fontFamily: 'sans-serif',
+              }}
+            >
+              <div
+                style={{
+                  width: '90px',
+                  height: '90px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '2px solid rgba(239, 68, 68, 0.6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '44px',
+                  color: '#f87171',
+                  marginBottom: '20px',
+                  boxShadow: '0 0 50px rgba(239, 68, 68, 0.35)',
+                }}
+              >
+                ⚠️
+              </div>
+              <h2 style={{ fontSize: '30px', fontWeight: 800, margin: '0 0 12px 0', color: '#f87171' }}>
+                Phim Không Thể Phát Trong Rạp (Lỗi YouTube {errorCode})
+              </h2>
+              <p style={{ fontSize: '18px', color: '#cbd5e1', maxWidth: '750px', lineHeight: 1.6, margin: '0 0 28px 0' }}>
+                {errorCode === 150 || errorCode === 101
+                  ? 'Chủ sở hữu video này đã cài đặt TẮT tính năng nhúng bên ngoài (Bản quyền âm nhạc / phân phối độc quyền trên YouTube).'
+                  : errorCode === 100
+                  ? 'Video này không tồn tại, đã bị xóa hoặc đang ở chế độ riêng tư.'
+                  : 'Không thể phát video này do giới hạn trình phát của YouTube.'}
+              </p>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <a
+                  href={`https://www.youtube.com/watch?v=${currentId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '9999px',
+                    backgroundColor: '#1e293b',
+                    color: '#f1f5f9',
+                    textDecoration: 'none',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  🔗 Xem Trực Tiếp Trên YouTube
+                </a>
+                {onOpenAddVideo && (
+                  <button
+                    onClick={onOpenAddVideo}
+                    style={{
+                      padding: '12px 26px',
+                      borderRadius: '9999px',
+                      backgroundColor: '#d8f95f',
+                      color: '#000',
+                      border: 'none',
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 0 30px rgba(216, 249, 95, 0.45)',
+                    }}
+                  >
+                    🎬 Đổi Sang Phim Khác
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : !hasStarted ? (
+            /* 2. Click to start / unmute overlay if autoplay was blocked */
             <div
               onClick={() => {
                 setHasStarted(true);
@@ -382,7 +478,7 @@ export const CinemaScreenOverlay = forwardRef<
                 Đồng bộ âm thanh & hình ảnh rạp chiếu WeTube
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

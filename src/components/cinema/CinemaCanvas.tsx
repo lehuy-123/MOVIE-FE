@@ -63,6 +63,9 @@ class CinemaErrorBoundary extends React.Component<
   }
 }
 
+const PROFILE_KEY = 'wetube-cine:profile';
+const AUDIO_SETTINGS_KEY = 'wetube-cine:audio-settings';
+
 export default function CinemaCanvas({
   initialVideoId = '60ItHLz5WEA', // Default to Rạp 01 movie (Alan Walker - Faded, 100% embeddable globally)
 }: CinemaCanvasProps) {
@@ -78,21 +81,69 @@ export default function CinemaCanvas({
 
   const [videoId, setVideoId] = useState(initialVideoId);
   const [videoTitle, setVideoTitle] = useState('Alan Walker - Faded');
-  // Người dùng chưa có ghế cho tới khi hoàn tất Bước 3 (chọn ghế) của luồng onboarding
-  const [selectedSeat, setSelectedSeat] = useState<SeatData | null>(null);
-  const [isDimmed] = useState(false);
 
-  // User Profile
-  const [userProfile, setUserProfile] = useState<UserProfile>({
-    nickname: '',
-    gender: 'Nam',
-    shirtColor: DEFAULT_SHIRT_COLOR,
-    seatId: null,
-    coins: 0,
+  // Khôi phục User Profile từ localStorage nếu đã có
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              nickname: parsed.nickname || '',
+              gender: parsed.gender || 'Nam',
+              shirtColor: parsed.shirtColor || DEFAULT_SHIRT_COLOR,
+              seatId: parsed.seatId || null,
+              coins: parsed.coins || 0,
+            };
+          }
+        }
+      } catch {}
+    }
+    return {
+      nickname: '',
+      gender: 'Nam',
+      shirtColor: DEFAULT_SHIRT_COLOR,
+      seatId: null,
+      coins: 0,
+    };
   });
 
-  // Modals state — mở sẵn Thẻ vé (Bước 1) khi vào trang
-  const [isTicketModalOpen, setIsTicketModalOpen] = useState(true);
+  // Khôi phục ghế ngồi từ localStorage nếu đã chọn trước đó
+  const [selectedSeat, setSelectedSeat] = useState<SeatData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.seatId) {
+            return buildSeatData(parsed.seatId);
+          }
+        }
+      } catch {}
+    }
+    return null;
+  });
+
+  const [isDimmed] = useState(false);
+
+  // CHỈ mở Thẻ vé khi user chưa từng có tên hoặc profile
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(PROFILE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.nickname && String(parsed.nickname).trim().length > 0) {
+            return false;
+          }
+        }
+      } catch {}
+    }
+    return true;
+  });
+
   const [ticketMode, setTicketMode] = useState<'onboarding' | 'wardrobe'>('onboarding');
   const [isSeatMapModalOpen, setIsSeatMapModalOpen] = useState(false);
   const [isSeatMapOnboarding, setIsSeatMapOnboarding] = useState(false);
@@ -100,6 +151,33 @@ export default function CinemaCanvas({
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
   const screenRef = useRef<CinemaScreenOverlayHandle | null>(null);
+
+  // Khôi phục cài đặt âm lượng & mute từ localStorage
+  const [volume, setVolume] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(AUDIO_SETTINGS_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed?.volume === 'number') return parsed.volume;
+        }
+      } catch {}
+    }
+    return 85;
+  });
+
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(AUDIO_SETTINGS_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed?.isMuted === 'boolean') return parsed.isMuted;
+        }
+      } catch {}
+    }
+    return false;
+  });
 
   // Synchronize CSS3D transforms directly from Three.js scene to CinemaScreenOverlay DOM
   const handleScreenTransform = useCallback(
@@ -113,12 +191,11 @@ export default function CinemaCanvas({
     },
     []
   );
+
   // Mặc định: góc cao bao quát từ phía sau. Chọn ghế trong 3D / nút ghế → góc nhìn ngôi thứ nhất.
   const [cameraMode, setCameraMode] = useState<CameraMode>('overview');
   const [cameraResetKey, setCameraResetKey] = useState(0);
   const [, setPlayerControls] = useState<YouTubePlayerControls | null>(null);
-  const [volume, setVolume] = useState(85);
-  const [isMuted, setIsMuted] = useState(false);
 
   // 1. Real-time WebSocket room synchronization hook
   const handleVideoChange = useCallback((vidId: string, title?: string) => {
@@ -242,14 +319,57 @@ export default function CinemaCanvas({
 
   const realOnlineCount = Math.max(1, users.length);
 
-  const handlePlayerReady = useCallback((controls: YouTubePlayerControls) => {
-    setPlayerControls(controls);
-  }, []);
+  const handlePlayerReady = useCallback(
+    (controls: YouTubePlayerControls) => {
+      setPlayerControls(controls);
+      try {
+        controls.setVolume(volume);
+        if (isMuted) {
+          screenRef.current?.getPlayer()?.mute();
+        } else {
+          screenRef.current?.getPlayer()?.unMute();
+        }
+      } catch {}
+    },
+    [volume, isMuted]
+  );
+
+  const handleToggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (next) {
+        screenRef.current?.getPlayer()?.mute();
+      } else {
+        screenRef.current?.getPlayer()?.unMute();
+      }
+      try {
+        localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify({ volume, isMuted: next }));
+      } catch {}
+      return next;
+    });
+  }, [volume]);
+
+  const handleVolumeChange = useCallback(
+    (val: number) => {
+      setVolume(val);
+      screenRef.current?.setVolume(val);
+      try {
+        localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify({ volume: val, isMuted }));
+      } catch {}
+    },
+    [isMuted]
+  );
 
   const applySeat = useCallback(
     (seat: SeatData) => {
       setSelectedSeat(seat);
-      setUserProfile((prev) => ({ ...prev, seatId: seat.id }));
+      setUserProfile((prev) => {
+        const next = { ...prev, seatId: seat.id };
+        try {
+          localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       sendSelectSeat(seat.id, userProfile.nickname, userProfile.shirtColor, userProfile.gender);
 
       const seatKind = seat.type || getSeatKind(seat.id);
@@ -292,6 +412,13 @@ export default function CinemaCanvas({
 
   const handleLeaveSeat = useCallback(() => {
     setSelectedSeat(null);
+    setUserProfile((prev) => {
+      const next = { ...prev, seatId: null };
+      try {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     sendLeaveSeat();
   }, [sendLeaveSeat]);
 
@@ -330,7 +457,13 @@ export default function CinemaCanvas({
   /** Bước 1 xong: lưu nhân vật & lập tức broadcast profile lên server realtime */
   const handleProfileUpdate = useCallback(
     (profile: UserProfile) => {
-      setUserProfile((prev) => ({ ...profile, seatId: prev.seatId, coins: prev.coins }));
+      setUserProfile((prev) => {
+        const next = { ...profile, seatId: prev.seatId, coins: prev.coins };
+        try {
+          localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       sendUpdateProfile(profile.nickname, profile.shirtColor, profile.gender);
       setIsTicketModalOpen(false);
       if (ticketMode === 'onboarding') {
@@ -396,19 +529,8 @@ export default function CinemaCanvas({
         shirtColor={userProfile.shirtColor}
         volume={volume}
         isMuted={isMuted}
-        onToggleMute={() => {
-          if (isMuted) {
-            screenRef.current?.getPlayer()?.unMute();
-            setIsMuted(false);
-          } else {
-            screenRef.current?.getPlayer()?.mute();
-            setIsMuted(true);
-          }
-        }}
-        onVolumeChange={(val) => {
-          setVolume(val);
-          screenRef.current?.setVolume(val);
-        }}
+        onToggleMute={handleToggleMute}
+        onVolumeChange={handleVolumeChange}
         chatHistory={chatHistory}
         onSendChat={(msg) => sendChat(msg, selectedSeat?.id || userProfile.seatId)}
         onSendReaction={(emoji) => sendChat(emoji, selectedSeat?.id || userProfile.seatId)}
@@ -431,6 +553,7 @@ export default function CinemaCanvas({
         isPlaying={roomState?.status !== 'paused'}
         onReady={handlePlayerReady}
         onTogglePlay={handleTogglePlay}
+        onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
       />
 
       {/* 5. Three.js WeTube Ciné 3D Scene */}

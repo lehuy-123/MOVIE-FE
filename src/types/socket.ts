@@ -43,6 +43,7 @@ export interface RoomState {
   users: RoomUser[];
   skipVotes: string[]; // List of socketIds who voted to skip
   queue?: VideoRequestItem[];
+  chatHistory?: ChatMessage[];
 }
 
 export interface RoomSummary {
@@ -66,8 +67,8 @@ export interface VideoSyncPayload {
 }
 
 export interface ClientToServerEvents {
-  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; adminToken?: string }) => void;
-  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; adminToken?: string }) => void;
+  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string }) => void;
+  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string }) => void;
   'get-rooms': () => void;
   'create-room': (payload: { roomId: string; name: string }) => void;
   'admin-login': (payload: { username?: string; password?: string }, ack?: (res: { ok: boolean; token?: string; message?: string }) => void) => void;
