@@ -27,7 +27,8 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased dark`}
+      translate="no"
+      className={`${beVietnam.variable} ${geistMono.variable} h-full antialiased dark notranslate`}
     >
       <body className="h-full w-full overflow-hidden bg-[#07090e] text-white">
         {children}
