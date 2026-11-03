@@ -53,7 +53,7 @@ export function CinemaScene({
   return (
     <>
       <color attach="background" args={['#05070b']} />
-      <fog attach="fog" args={['#05070b', 55, 110]} />
+      <fog attach="fog" args={['#05070b', 65, 120]} />
 
       {/* Camera: mặc định góc cao bao quát từ phía sau; giới hạn do CinemaCameraController áp dụng */}
       <OrbitControls
@@ -69,20 +69,46 @@ export function CinemaScene({
         resetKey={cameraResetKey}
       />
 
-      {/* Ánh sáng: nền xanh đen nhẹ + ánh sáng từ trên để thấy rõ khán giả */}
-      <ambientLight color="#1b2433" intensity={isDimmed ? 0.5 : 1.1} />
-      <hemisphereLight args={['#33425a', '#0a0d12', isDimmed ? 0.5 : 1.15]} />
-      <directionalLight position={[0, 22, 16]} color="#c4d2ff" intensity={isDimmed ? 0.45 : 1.0} />
-      {/* Ánh sáng dịu phủ lên khu vực sân khấu và các hàng ghế đầu */}
-      <pointLight
-        position={[0, 14, -2]}
-        color="#dfe8ff"
-        intensity={isDimmed ? 30 : 70}
-        distance={45}
-        decay={1.8}
+      {/* ── Hệ thống ánh sáng ấm áp, sáng sủa chuẩn xác theo Screenshot 2 ── */}
+      {/* 1. Ánh sáng môi trường tự nhiên (Ambient Fill) giúp thấy rõ toàn bộ rạp và ghế */}
+      <ambientLight color="#ffffff" intensity={isDimmed ? 1.0 : 1.9} />
+
+      {/* 2. Ánh sáng bán cầu (Hemisphere: Vòm trời sáng dịu - Đất phản xạ ấm) */}
+      <hemisphereLight
+        args={['#f8fafc', '#2c394b', isDimmed ? 0.9 : 1.75]}
       />
 
-      {/* Kiến trúc phòng: sàn bậc thang, tường LED, màn viền neon */}
+      {/* 3. Đèn chính chiếu rọi từ trên cao phía sau khán phòng (Key Light) */}
+      <directionalLight
+        position={[0, 26, 16]}
+        color="#fff6ed"
+        intensity={isDimmed ? 1.3 : 2.5}
+      />
+
+      {/* 4. Đèn rọi trần phủ đều toàn bộ các hàng ghế khán giả (Audience Hall Downlights) */}
+      <pointLight
+        position={[0, 14, 2]}
+        color="#ffeacc"
+        intensity={isDimmed ? 25 : 60}
+        distance={38}
+        decay={1.6}
+      />
+      <pointLight
+        position={[0, 15, 11]}
+        color="#ffeacc"
+        intensity={isDimmed ? 25 : 60}
+        distance={38}
+        decay={1.6}
+      />
+      <pointLight
+        position={[0, 15, -3]}
+        color="#ffeacc"
+        intensity={isDimmed ? 22 : 50}
+        distance={35}
+        decay={1.6}
+      />
+
+      {/* Kiến trúc phòng: sàn bậc thang, tường LED, nan tiêu âm */}
       <CinemaRoom />
 
       {/* Sân khấu: loa cột, disco ball, 3 bục biểu diễn */}

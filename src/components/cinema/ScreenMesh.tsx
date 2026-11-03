@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -48,10 +48,39 @@ function getObjectCSSMatrix(matrix: THREE.Matrix4, factor: number) {
   return getCSSMatrix(matrix, objectMultipliers(factor), 'translate(-50%,-50%)');
 }
 
+/** Tạo texture chữ 'WETUBE CINÉ' màu bạc trắng in nổi trên viền dưới màn chiếu */
+function useBrandingTexture(): THREE.CanvasTexture | null {
+  return useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, 512, 64);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = "900 28px 'Inter', system-ui, -apple-system, sans-serif";
+    try {
+      // @ts-ignore
+      ctx.letterSpacing = '8px';
+    } catch {
+      // ignore
+    }
+    ctx.fillText('WETUBE CINÉ', 256, 34);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+}
+
 export function ScreenMesh({
-  width = 26,              // Giant IMAX width
-  height = 14.625,         // Giant IMAX height (16:9)
-  position = [0, 8.5, -10],
+  width = 25,              // Chuẩn 16:9 cinema width
+  height = 14.0625,        // Chuẩn 16:9 cinema height
+  position = [0, 9.3, -10.4],
   rotation = [0, 0, 0],
   isDimmed = false,
   isPlaying = true,
@@ -61,8 +90,9 @@ export function ScreenMesh({
   const glowLightRef = useRef<THREE.PointLight>(null);
   const spotGlowRef = useRef<THREE.SpotLight>(null);
   const ambientGlowRef = useRef<THREE.PointLight>(null);
+  const brandingTex = useBrandingTexture();
 
-  // Synchronize 3D screen position into CSS 3D matrix every frame
+  // Đồng bộ vị trí 3D màn chiếu sang ma trận CSS 3D mỗi frame
   useFrame((state) => {
     const { camera, size } = state;
     if (groupRef.current && onScreenTransform) {
@@ -98,78 +128,104 @@ export function ScreenMesh({
     const time = state.clock.getElapsedTime();
     if (isPlaying) {
       const flicker = Math.sin(time * 2.8) * 0.35 + Math.cos(time * 5.7) * 0.2;
-      const baseIntensity = isDimmed ? 5.5 : 4.0;
+      const baseIntensity = isDimmed ? 4.5 : 3.2;
 
       if (glowLightRef.current) {
         glowLightRef.current.intensity = baseIntensity + flicker;
       }
       if (spotGlowRef.current) {
-        spotGlowRef.current.intensity = baseIntensity * 1.5 + flicker * 1.8;
+        spotGlowRef.current.intensity = baseIntensity * 1.3 + flicker * 1.2;
       }
       if (ambientGlowRef.current) {
-        ambientGlowRef.current.intensity = 2.0 + flicker * 0.5;
+        ambientGlowRef.current.intensity = 1.4 + flicker * 0.4;
       }
     } else {
       if (glowLightRef.current) {
         glowLightRef.current.intensity = THREE.MathUtils.lerp(
           glowLightRef.current.intensity,
-          0.9,
+          0.8,
           0.05
         );
       }
       if (spotGlowRef.current) {
         spotGlowRef.current.intensity = THREE.MathUtils.lerp(
           spotGlowRef.current.intensity,
-          1.2,
+          1.0,
           0.05
         );
       }
       if (ambientGlowRef.current) {
         ambientGlowRef.current.intensity = THREE.MathUtils.lerp(
           ambientGlowRef.current.intensity,
-          0.5,
+          0.4,
           0.05
         );
       }
     }
   });
 
+  const bezelThickness = 0.22;
+  const bottomBezelHeight = 0.62;
+
   return (
     <group ref={groupRef} position={position} rotation={rotation} name="imax-screen-rig">
-      {/* 1. Khung viền màn chiếu màu đen mờ sang trọng */}
-      <mesh position={[0, 0, -0.05]}>
-        <boxGeometry args={[width + 0.35, height + 0.35, 0.3]} />
-        <meshStandardMaterial color="#020305" roughness={0.9} metalness={0.1} />
+      {/* 1. Khung viền màn chiếu rạp phim màu đen nhám (Cinema Bezel) */}
+      {/* Mặt lưng màn chiếu */}
+      <mesh position={[0, 0, -0.06]}>
+        <boxGeometry args={[width + 0.6, height + 0.6, 0.2]} />
+        <meshStandardMaterial color="#080a0e" roughness={0.85} metalness={0.2} />
       </mesh>
 
-      {/* 2. Mặt lưng màn chiếu */}
+      {/* Viền trên */}
+      <mesh position={[0, height / 2 + bezelThickness / 2, 0.02]}>
+        <boxGeometry args={[width + 0.6, bezelThickness, 0.1]} />
+        <meshStandardMaterial color="#090c12" roughness={0.8} />
+      </mesh>
+
+      {/* Viền trái */}
+      <mesh position={[-width / 2 - bezelThickness / 2, 0, 0.02]}>
+        <boxGeometry args={[bezelThickness, height + 0.6, 0.1]} />
+        <meshStandardMaterial color="#090c12" roughness={0.8} />
+      </mesh>
+
+      {/* Viền phải */}
+      <mesh position={[width / 2 + bezelThickness / 2, 0, 0.02]}>
+        <boxGeometry args={[bezelThickness, height + 0.6, 0.1]} />
+        <meshStandardMaterial color="#090c12" roughness={0.8} />
+      </mesh>
+
+      {/* Viền dưới dày hơn mang thương hiệu WETUBE CINÉ */}
+      <mesh position={[0, -height / 2 - bottomBezelHeight / 2, 0.02]}>
+        <boxGeometry args={[width + 0.6, bottomBezelHeight, 0.12]} />
+        <meshStandardMaterial color="#090c12" roughness={0.8} />
+      </mesh>
+
+      {/* Logo chữ 'WETUBE CINÉ' màu bạc trắng in chính giữa viền dưới màn hình (Screenshot 1 & 2) */}
+      {brandingTex && (
+        <mesh position={[0, -height / 2 - bottomBezelHeight / 2 + 0.03, 0.09]}>
+          <planeGeometry args={[4.2, 0.52]} />
+          <meshBasicMaterial map={brandingTex} transparent depthWrite={false} toneMapped={false} />
+        </mesh>
+      )}
+
+      {/* 2. Mặt nền màn chiếu khi chưa bật video */}
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[width, height]} />
         <meshStandardMaterial
           color="#050608"
-          roughness={0.15}
+          roughness={0.2}
           metalness={0.1}
-          emissive="#0e1726"
-          emissiveIntensity={isPlaying ? 0.35 : 0.05}
+          emissive="#0b1320"
+          emissiveIntensity={isPlaying ? 0.25 : 0.05}
         />
       </mesh>
 
-      {/* 3. Dải viền Ambilight phía sau khung màn chiếu */}
-      <mesh position={[0, 0, -0.08]}>
-        <planeGeometry args={[width + 0.6, height + 0.6]} />
-        <meshBasicMaterial
-          color={isPlaying ? '#60a5fa' : '#334155'}
-          transparent
-          opacity={isPlaying ? 0.6 : 0.2}
-        />
-      </mesh>
-
-      {/* 4. Hệ thống ánh sáng màn chiếu hắt ra khắp rạp */}
+      {/* 3. Hệ thống ánh sáng màn chiếu hắt ra khắp rạp */}
       <pointLight
         ref={glowLightRef}
         position={[0, 0, 2.5]}
         color={isPlaying ? '#93c5fd' : '#475569'}
-        intensity={3.5}
+        intensity={3.2}
         distance={35}
         decay={1.6}
       />
@@ -178,7 +234,7 @@ export function ScreenMesh({
         ref={spotGlowRef}
         position={[0, -2, 3]}
         color={isPlaying ? '#60a5fa' : '#334155'}
-        intensity={5.0}
+        intensity={4.2}
         angle={Math.PI / 2.5}
         penumbra={0.8}
         distance={38}
@@ -189,7 +245,7 @@ export function ScreenMesh({
         ref={ambientGlowRef}
         position={[0, 0, -1.5]}
         color={isPlaying ? '#3b82f6' : '#1e293b'}
-        intensity={1.8}
+        intensity={1.2}
         distance={20}
         decay={2}
       />

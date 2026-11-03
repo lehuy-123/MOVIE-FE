@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
-import { ROOM, ROOM_DEPTH, ROOM_CENTER_Z, SCREEN } from '@/lib/roomLayout';
+import { ROOM, ROOM_DEPTH, ROOM_CENTER_Z } from '@/lib/roomLayout';
 import { AISLE_X_POSITIONS, ROW_Y_POSITIONS, ROW_Z_POSITIONS } from '@/lib/seatLayout';
 
 /** Dải đèn LED dọc trên tường bên: cách đều nhau 4m. */
@@ -11,10 +11,10 @@ const ROW_DEPTH = 1.7;
 const RISER_WIDTH = 23;
 const HALF_W = ROOM.width / 2;
 
-const WALL_COLOR = '#16222b';
-const PANEL_COLOR = '#1b2a33';
+// Tông màu tường và nan tiêu âm sáng sủa, ấm áp (Screenshot 2)
+const WALL_COLOR = '#1a2734';
+const PANEL_COLOR = '#233444';
 const WARM = '#ffc477';
-const NEON = '#e4f08a';
 
 /** Texture vệt sáng ấm toả ngang, mờ dần ở hai đầu (hắt lên tường). */
 function useStripGlowTexture(): THREE.CanvasTexture {
@@ -71,7 +71,7 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
       {/* Mặt tường */}
       <mesh position={[wallX, ROOM.height / 2, ROOM_CENTER_Z]} rotation={[0, (-side * Math.PI) / 2, 0]}>
         <planeGeometry args={[ROOM_DEPTH, ROOM.height]} />
-        <meshStandardMaterial color={WALL_COLOR} roughness={0.9} />
+        <meshStandardMaterial color={WALL_COLOR} roughness={0.85} />
       </mesh>
 
       {STRIP_Z.map((z) => (
@@ -87,13 +87,13 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
             <meshBasicMaterial
               map={glow}
               transparent
-              opacity={0.55}
+              opacity={0.65}
               blending={THREE.AdditiveBlending}
               depthWrite={false}
               toneMapped={false}
             />
           </mesh>
-          {/* Đèn rọi tường hình trụ đen gắn trên cao */}
+          {/* Đèn rọi tường hình trụ đen gắn trên trần chiếu xuống (Screenshot 2) */}
           <group position={[wallX + inward * 0.5, 16.6, z]} rotation={[0, 0, inward * -0.55]}>
             <mesh>
               <cylinderGeometry args={[0.17, 0.2, 0.75, 14]} />
@@ -111,58 +111,28 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
       {STRIP_Z.slice(0, -1).map((z) => (
         <mesh key={`panel-${z}`} position={[wallX + inward * 0.14, 7.9, z + 2]}>
           <boxGeometry args={[0.28, 12.4, 2.8]} />
-          <meshStandardMaterial color={PANEL_COLOR} roughness={0.8} />
+          <meshStandardMaterial color={PANEL_COLOR} roughness={0.75} />
         </mesh>
       ))}
 
-      {/* Đèn ấm thật sự rọi lên tường + hàng ghế */}
-      {[-4, 6, 16].map((z) => (
+      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên */}
+      {[-6, 0, 6, 12, 18].map((z) => (
         <pointLight
           key={`warm-${z}`}
-          position={[wallX + inward * 1.6, 8, z]}
+          position={[wallX + inward * 1.8, 8.5, z]}
           color="#ffb866"
-          intensity={38}
-          distance={20}
-          decay={2}
+          intensity={36}
+          distance={22}
+          decay={1.8}
         />
       ))}
     </group>
   );
 }
 
-/** Khung viền neon ôm khít màn chiếu IMAX. */
-function ScreenNeonFrame() {
-  const t = 0.12;
-  const outerW = SCREEN.width + 0.15;
-  const outerH = SCREEN.height + 0.15;
-  const z = SCREEN.z + 0.02;
-  return (
-    <group position={[0, SCREEN.y, z]}>
-      {/* Khung viền neon mỏng ôm khít chuẩn xác cạnh màn hình */}
-      <mesh position={[0, outerH / 2, 0]}>
-        <boxGeometry args={[outerW + t, t, t]} />
-        <meshBasicMaterial color={NEON} toneMapped={false} />
-      </mesh>
-      <mesh position={[0, -outerH / 2, 0]}>
-        <boxGeometry args={[outerW + t, t, t]} />
-        <meshBasicMaterial color={NEON} toneMapped={false} />
-      </mesh>
-      <mesh position={[-outerW / 2, 0, 0]}>
-        <boxGeometry args={[t, outerH, t]} />
-        <meshBasicMaterial color={NEON} toneMapped={false} />
-      </mesh>
-      <mesh position={[outerW / 2, 0, 0]}>
-        <boxGeometry args={[t, outerH, t]} />
-        <meshBasicMaterial color={NEON} toneMapped={false} />
-      </mesh>
-      <pointLight position={[0, 0, 1.0]} color={NEON} intensity={8} distance={12} decay={2} />
-    </group>
-  );
-}
-
 /**
  * Kiến trúc phòng chiếu: hộp chữ nhật dài, sàn dốc giật cấp (cao dần về phía sau),
- * hai tường bên có dải LED vàng ấm, tường trước gắn màn chiếu viền neon.
+ * hai tường bên có dải LED vàng ấm, tường trước gắn màn chiếu viền rạp.
  * Tường sau chỉ render một mặt (hướng vào trong) để camera trên cao phía sau nhìn xuyên vào phòng.
  */
 export function CinemaRoom() {
@@ -171,40 +141,40 @@ export function CinemaRoom() {
 
   return (
     <group>
-      {/* Sàn phòng (bóng nhẹ, ăn sáng từ đèn) */}
+      {/* Sàn phòng rạp chiếu (bóng nhẹ, phản xạ ánh sáng ấm) */}
       <mesh position={[0, 0, ROOM_CENTER_Z]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[ROOM.width, ROOM_DEPTH]} />
-        <meshStandardMaterial color="#0a1016" roughness={0.28} metalness={0.45} />
+        <meshStandardMaterial color="#111a24" roughness={0.3} metalness={0.35} />
       </mesh>
 
-      {/* Sàn dốc giật cấp: mỗi hàng ghế một bậc đặc */}
+      {/* Sàn dốc giật cấp: mỗi hàng ghế một bậc đặc tông xám xanh sáng sủa */}
       {ROW_Z_POSITIONS.map((z, i) => {
         const top = ROW_Y_POSITIONS[i];
         return (
           <group key={`tier-${i}`}>
             <mesh position={[0, top / 2, z]}>
               <boxGeometry args={[RISER_WIDTH, top, ROW_DEPTH]} />
-              <meshStandardMaterial color="#111922" roughness={0.7} metalness={0.1} />
+              <meshStandardMaterial color="#1e2938" roughness={0.65} metalness={0.12} />
             </mesh>
-            {/* Đèn LED viền bậc */}
+            {/* Đèn LED viền bậc sáng ấm */}
             <mesh position={[0, top - 0.035, z - ROW_DEPTH / 2 - 0.01]}>
               <boxGeometry args={[RISER_WIDTH, 0.045, 0.03]} />
-              <meshBasicMaterial color={WARM} transparent opacity={0.75} toneMapped={false} />
+              <meshBasicMaterial color="#ffc477" transparent opacity={0.85} toneMapped={false} />
             </mesh>
-            {/* Lối đi: thảm tối + đèn chấm trắng */}
+            {/* Lối đi: thảm lối đi + đèn chấm trắng vàng ấm */}
             {AISLE_X_POSITIONS.map((x) => (
               <group key={`aisle-${x}`}>
                 <mesh position={[x, top + 0.006, z]}>
                   <boxGeometry args={[1.3, 0.012, ROW_DEPTH]} />
-                  <meshStandardMaterial color="#060a0e" roughness={0.9} />
+                  <meshStandardMaterial color="#141c27" roughness={0.85} />
                 </mesh>
                 <mesh position={[x - 0.5, top + 0.016, z + 0.5]}>
                   <boxGeometry args={[0.07, 0.012, 0.07]} />
-                  <meshBasicMaterial color="#fff6dc" toneMapped={false} />
+                  <meshBasicMaterial color="#fff4d4" toneMapped={false} />
                 </mesh>
                 <mesh position={[x + 0.5, top + 0.016, z + 0.5]}>
                   <boxGeometry args={[0.07, 0.012, 0.07]} />
-                  <meshBasicMaterial color="#fff6dc" toneMapped={false} />
+                  <meshBasicMaterial color="#fff4d4" toneMapped={false} />
                 </mesh>
               </group>
             ))}
@@ -220,7 +190,7 @@ export function CinemaRoom() {
         return (
           <mesh position={[0, lastTop / 2, startZ + depth / 2]}>
             <boxGeometry args={[RISER_WIDTH, lastTop, depth]} />
-            <meshStandardMaterial color="#0d141b" roughness={0.75} />
+            <meshStandardMaterial color="#172230" roughness={0.7} />
           </mesh>
         );
       })()}
@@ -228,22 +198,22 @@ export function CinemaRoom() {
       {/* Tường trước (sau màn chiếu) */}
       <mesh position={[0, ROOM.height / 2, ROOM.zFront]}>
         <planeGeometry args={[ROOM.width, ROOM.height]} />
-        <meshStandardMaterial color="#0c1218" roughness={0.9} />
+        <meshStandardMaterial color="#0e151e" roughness={0.9} />
       </mesh>
       {/* Tường sau: một mặt, hướng vào trong */}
       <mesh position={[0, ROOM.height / 2, ROOM.zBack]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[ROOM.width, ROOM.height]} />
-        <meshStandardMaterial color="#0d141a" roughness={0.9} />
+        <meshStandardMaterial color="#0f1722" roughness={0.9} />
       </mesh>
 
       {/* Hai tường bên */}
       <SideWall side={-1} glow={glow} />
       <SideWall side={1} glow={glow} />
 
-      {/* Trần + sao */}
+      {/* Trần + bầu trời ngàn sao */}
       <mesh position={[0, ROOM.height, ROOM_CENTER_Z]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[ROOM.width, ROOM_DEPTH]} />
-        <meshStandardMaterial color="#05080c" roughness={0.95} />
+        <meshStandardMaterial color="#06090e" roughness={0.95} />
       </mesh>
       <points>
         <bufferGeometry>
@@ -251,8 +221,6 @@ export function CinemaRoom() {
         </bufferGeometry>
         <pointsMaterial color="#ffe9b8" size={0.14} sizeAttenuation transparent opacity={0.85} toneMapped={false} />
       </points>
-
-      <ScreenNeonFrame />
     </group>
   );
 }

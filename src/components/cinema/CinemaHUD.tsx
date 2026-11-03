@@ -34,6 +34,8 @@ import {
   Play,
   Pause,
   Lock,
+  Shirt,
+  Coffee,
 } from 'lucide-react';
 import type { ScreenMeshHandle } from './ScreenMesh';
 import type { CameraMode } from './CinemaCameraController';
@@ -504,8 +506,19 @@ export function CinemaHUD({
           </div>
         </div>
 
-        {/* Phải: nút Quản trị Admin, toàn màn hình, âm thanh, ẩn UI, avatar */}
+        {/* Phải: Ví tiền xu, nút Quản trị Admin, toàn màn hình, âm thanh, ẩn UI, avatar */}
         <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl p-1 ${glass}`}>
+          {/* Ô số dư xu (Screenshot 1 & 2) */}
+          <div
+            className="flex items-center gap-1.5 rounded-xl bg-white/[0.08] px-3 py-1.5 text-xs font-bold text-amber-300 border border-white/10 shadow-sm"
+            title="Số dư xu trong rạp"
+          >
+            <span className="text-sm">🪙</span>
+            <span className="font-mono tracking-tight text-white/95">168.000đ</span>
+          </div>
+
+          <span className="h-5 w-px bg-white/10 mx-0.5" />
+
           {/* Nút Admin riêng biệt */}
           <button
             id="hud-admin-button"
@@ -616,16 +629,21 @@ export function CinemaHUD({
                 onClick={() => toggleDock('react')}
               />
               <DockButton
+                icon={<Shirt className="h-[18px] w-[18px]" />}
+                label="Tủ đồ"
+                onClick={onOpenProfile}
+              />
+              <DockButton
+                icon={<Heart className="h-[18px] w-[18px]" />}
+                label="Ủng hộ"
+                tone="rose"
+                onClick={burstHearts}
+              />
+              <DockButton
                 icon={<Flag className="h-[18px] w-[18px]" />}
                 label="Tố cáo"
                 active={dockPanel === 'report'}
                 onClick={() => toggleDock('report')}
-              />
-              <DockButton
-                icon={<Heart className="h-[18px] w-[18px]" />}
-                label="Thả tim"
-                tone="rose"
-                onClick={burstHearts}
               />
             </>
           )}
@@ -732,6 +750,17 @@ export function CinemaHUD({
           >
             <DoorOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Đổi rạp ({roomName?.split('·')[0]?.trim() || 'Rạp 01'})</span>
+          </button>
+
+          {/* Nút Phòng riêng (Screenshot 1 & 2) */}
+          <button
+            type="button"
+            onClick={onTogglePrivateRoom}
+            className="hidden sm:flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.07] px-3.5 py-2.5 text-xs font-bold text-white/90 backdrop-blur-xl transition hover:bg-white/15 active:scale-95"
+            title="Chế độ phòng riêng tư"
+          >
+            <Armchair className="h-4 w-4 text-[#d8f95f]" />
+            <span>Phòng riêng</span>
           </button>
 
           <div className={`flex items-center gap-0.5 rounded-2xl p-1 ${glass}`}>

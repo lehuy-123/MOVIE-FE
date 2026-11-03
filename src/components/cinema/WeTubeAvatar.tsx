@@ -17,23 +17,20 @@ interface WeTubeAvatarProps {
   activeBubble?: ChatMessage;
 }
 
-/* ──────────────── Shared geometry / material caches ────────────────
- * ~100 avatars share the same unit geometries and per-colour materials so the
- * GPU only holds a handful of buffers instead of thousands.
- */
+/* ──────────────── Shared geometry / material caches ──────────────── */
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const sphereGeo = new THREE.SphereGeometry(1, 20, 14);
 
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 function mat(color?: string | null, roughness = 0.75): THREE.MeshStandardMaterial {
-  const safeColor = (typeof color === 'string' && color.trim().length > 0) ? color.trim() : '#3b82f6';
+  const safeColor = typeof color === 'string' && color.trim().length > 0 ? color.trim() : '#a7f3d0';
   const key = `${safeColor}|${roughness}`;
   let m = materialCache.get(key);
   if (!m) {
     try {
       m = new THREE.MeshStandardMaterial({ color: safeColor, roughness });
     } catch {
-      m = new THREE.MeshStandardMaterial({ color: '#3b82f6', roughness });
+      m = new THREE.MeshStandardMaterial({ color: '#a7f3d0', roughness });
     }
     materialCache.set(key, m);
   }
@@ -41,10 +38,14 @@ function mat(color?: string | null, roughness = 0.75): THREE.MeshStandardMateria
 }
 
 const nameTextureCache = new Map<string, THREE.CanvasTexture>();
-/** Tên in trên lưng áo (texture nhẹ, thay cho DOM overlay). */
+
+/**
+ * Tạo nhãn vải tên người dùng in trên lưng áo (Cloth Nametag Patch)
+ * Nền vải trắng sáng bo góc với chữ đen đậm nét chuẩn xác theo Screenshot 1 & 2
+ */
 function getNameTexture(name?: string | null): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') return null;
-  const safeName = (typeof name === 'string' && name.trim().length > 0) ? name.trim() : '?';
+  const safeName = typeof name === 'string' && name.trim().length > 0 ? name.trim() : '?';
   let tex = nameTextureCache.get(safeName);
   if (!tex) {
     try {
@@ -53,17 +54,41 @@ function getNameTexture(name?: string | null): THREE.CanvasTexture | null {
       canvas.height = 64;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
+
       ctx.clearRect(0, 0, 256, 64);
-      ctx.fillStyle = 'rgba(20, 24, 20, 0.82)';
+
+      // Nền nhãn vải trắng ngà bo góc nhẹ
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3;
+
+      const x = 6, y = 6, w = 244, h = 52, r = 12;
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Tên chữ màu xám đen đậm
+      ctx.fillStyle = '#0f172a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      let size = 38;
+      let size = 30;
       ctx.font = `800 ${size}px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
-      while (ctx.measureText(safeName).width > 236 && size > 14) {
+      while (ctx.measureText(safeName).width > 220 && size > 16) {
         size -= 2;
         ctx.font = `800 ${size}px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
       }
-      ctx.fillText(safeName, 128, 34);
+      ctx.fillText(safeName, 128, 33);
+
       tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 4;
@@ -79,6 +104,9 @@ const SKIN_TONES = ['#f6d1b0', '#eec19b', '#d9a77e', '#f2cfae'];
 const HAIR_COLORS = ['#25170d', '#3b2010', '#17171b', '#4b2e1a', '#2d1b12'];
 const PANTS_COLORS = ['#2b3139', '#232a35', '#33363d', '#2a2f2c'];
 
+// Bảng màu pastel nhẹ nhàng của áo thun chibi (Screenshot 1 & 2)
+const PASTEL_SHIRTS = ['#a7f3d0', '#bfdbfe', '#ddd6fe', '#fed7aa', '#fef08a', '#fbcfe8'];
+
 function hashString(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -89,13 +117,13 @@ function hashString(s: string): number {
 }
 
 /**
- * Chibi low-poly. Gốc toạ độ = mặt trên đệm ghế (ngồi) hoặc mặt sàn (đứng, khi `isDancing`).
- * Nhân vật nhìn về phía -z (màn chiếu); lưng áo quay về +z nên từ camera phía sau
- * sẽ thấy tóc, vai áo và tên in trên lưng.
+ * Chibi low-poly người xem và biểu diễn.
+ * Nhân vật nhìn về phía -z (màn chiếu); lưng áo quay về +z nên camera phía sau
+ * sẽ thấy mái tóc gọn gàng, áo pastel và nhãn tên in trên lưng áo.
  */
 export function WeTubeAvatar({
   nickname,
-  shirtColor = '#b9cf8f',
+  shirtColor,
   position,
   rotation = [0, 0, 0],
   isDancing = false,
@@ -105,14 +133,16 @@ export function WeTubeAvatar({
 }: WeTubeAvatarProps) {
   const look = useMemo(() => {
     const h = hashString(nickname || 'x');
+    const defaultColor = PASTEL_SHIRTS[h % PASTEL_SHIRTS.length];
     return {
       skin: SKIN_TONES[h % SKIN_TONES.length],
       hair: HAIR_COLORS[(h >> 3) % HAIR_COLORS.length],
       pants: PANTS_COLORS[(h >> 6) % PANTS_COLORS.length],
-      style: (h >> 9) % 3, // 0 ngắn, 1 dài, 2 búi
+      shirt: shirtColor || defaultColor,
+      style: (h >> 9) % 3,
       phase: (h % 628) / 100,
     };
-  }, [nickname]);
+  }, [nickname, shirtColor]);
 
   const nameTexture = useMemo(() => getNameTexture(nickname || '?'), [nickname]);
 
@@ -131,11 +161,11 @@ export function WeTubeAvatar({
 
   const skin = mat(look.skin, 0.6);
   const hair = mat(look.hair, 0.9);
-  const shirt = mat(shirtColor, 0.7);
+  const shirt = mat(look.shirt, 0.7);
   const pants = mat(look.pants, 0.85);
   const shoes = mat('#0d0f12', 0.5);
 
-  const armRestX = isDancing ? 0 : 0.5; // ngồi: tay đặt hơi chìa về phía trước
+  const armRestX = isDancing ? 0 : 0.5;
 
   return (
     <group position={position} rotation={rotation}>
@@ -152,7 +182,6 @@ export function WeTubeAvatar({
           </>
         ) : (
           <>
-            {/* Mông + đùi đặt ngang trên đệm, cẳng chân buông xuống */}
             <mesh geometry={boxGeo} material={pants} position={[0, 0.07, 0.02]} scale={[0.4, 0.14, 0.32]} />
             {[-0.1, 0.1].map((x) => (
               <React.Fragment key={x}>
@@ -164,12 +193,13 @@ export function WeTubeAvatar({
           </>
         )}
 
-        {/* ── Thân + áo thun ── */}
+        {/* ── Thân + áo thun pastel ── */}
         <mesh geometry={boxGeo} material={shirt} position={[0, 0.4, 0.04]} scale={[0.44, 0.52, 0.28]} />
-        {/* Tên in trên lưng áo */}
+
+        {/* ── Nhãn tên vải in sau lưng áo chuẩn Screenshot 1 ── */}
         {nameTexture && (
-          <mesh position={[0, 0.5, 0.186]}>
-            <planeGeometry args={[0.4, 0.1]} />
+          <mesh position={[0, 0.46, 0.185]}>
+            <planeGeometry args={[0.38, 0.11]} />
             <meshBasicMaterial map={nameTexture} transparent depthWrite={false} toneMapped={false} />
           </mesh>
         )}
@@ -184,9 +214,9 @@ export function WeTubeAvatar({
           <mesh geometry={boxGeo} material={skin} position={[0, -0.27, 0]} scale={[0.09, 0.14, 0.1]} />
         </group>
 
-        {/* ── Đầu chibi (to, tròn) ── */}
+        {/* ── Đầu chibi gọn gàng ── */}
         <mesh geometry={sphereGeo} material={skin} position={[0, 0.94, 0.03]} scale={0.27} />
-        {/* Tóc: phủ đỉnh đầu + sau gáy, chừa mặt phía trước */}
+        {/* Mái tóc màu tối bóng mượt */}
         <mesh geometry={sphereGeo} material={hair} position={[0, 0.98, 0.09]} scale={[0.285, 0.275, 0.285]} />
         {look.style === 1 && (
           <mesh geometry={boxGeo} material={hair} position={[0, 0.7, 0.2]} scale={[0.5, 0.42, 0.12]} />
@@ -194,7 +224,8 @@ export function WeTubeAvatar({
         {look.style === 2 && (
           <mesh geometry={sphereGeo} material={hair} position={[0, 1.27, 0.1]} scale={0.1} />
         )}
-        {/* Mặt (chỉ cần khi nhân vật quay mặt về khán giả) */}
+
+        {/* Khuôn mặt (khi đứng trên sân khấu quay mặt về khán giả) */}
         {isDancing && (
           <>
             <mesh geometry={sphereGeo} material={mat('#111318', 0.4)} position={[-0.09, 0.93, -0.235]} scale={0.03} />
@@ -203,132 +234,33 @@ export function WeTubeAvatar({
           </>
         )}
 
-        {/* ── Mũ Noel Giáng Sinh (Santa Claus Hat) ── */}
-        <group position={[0, 1.15, 0.05]} rotation={[0.08, 0, 0.12]}>
-          {/* Vành lông trắng */}
-          <mesh position={[0, 0, 0]}>
-            <cylinderGeometry args={[0.27, 0.29, 0.09, 18]} />
-            <meshStandardMaterial color="#f8fafc" roughness={0.9} />
-          </mesh>
-          {/* Nón đỏ uốn nhẹ */}
-          <group position={[0, 0.04, 0]} rotation={[0.12, 0, 0.18]}>
-            <mesh position={[0, 0.18, 0]}>
-              <coneGeometry args={[0.25, 0.42, 18]} />
-              <meshStandardMaterial color="#dc2626" roughness={0.4} />
-            </mesh>
-            {/* Quả cầu bông trắng */}
-            <mesh position={[0.07, 0.38, -0.04]}>
-              <sphereGeometry args={[0.075, 12, 12]} />
-              <meshStandardMaterial color="#ffffff" roughness={0.8} />
-            </mesh>
-          </group>
-        </group>
-
-        {/* Vòng sáng cho nhân vật của bạn */}
+        {/* Vòng hào quang nhỏ định vị cho nhân vật của bạn */}
         {isCurrentUser && (
-          <mesh position={[0, 1.82, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.15, 0.016, 8, 24]} />
+          <mesh position={[0, 1.48, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.16, 0.016, 8, 24]} />
             <meshBasicMaterial color="#d8f95f" toneMapped={false} />
           </mesh>
         )}
       </group>
 
-      {/* ── Bảng tên nhỏ trên đầu nhân vật (Floating Nametag) ── */}
-      {!activeBubble && (
-        <SafeHtml
-          position={[0, isDancing ? 2.3 : 1.95, 0.06]}
-          center
-          distanceFactor={16}
-          style={{ pointerEvents: 'none', userSelect: 'none' }}
-        >
-          <div className="flex flex-col items-center select-none pointer-events-none">
-            <div
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.7)] backdrop-blur-md border transition-transform ${
-                isCurrentUser
-                  ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-[0_0_14px_rgba(251,191,36,0.5)] scale-105'
-                  : 'bg-[#0f172a]/85 text-white border-white/20 font-bold'
-              }`}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0 shadow-sm"
-                style={{ backgroundColor: isCurrentUser ? '#0f172a' : (shirtColor || '#38bdf8') }}
-              />
-              <span className="text-[11px] leading-tight whitespace-nowrap tracking-tight font-extrabold">
-                {nickname || 'Khán giả'}
-              </span>
-              {isCurrentUser && (
-                <span className="text-[9px] uppercase tracking-wider font-extrabold px-1 rounded bg-black/20 text-black">
-                  Bạn
-                </span>
-              )}
-              {seatId && (
-                <span
-                  className={`text-[9.5px] font-bold opacity-80 ${
-                    isCurrentUser ? 'text-black/80' : 'text-amber-300'
-                  }`}
-                >
-                  · {seatId}
-                </span>
-              )}
-            </div>
-            {/* Mũi tên tam giác nhỏ chỉ xuống đỉnh mũ */}
-            <div
-              className={`w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[4.5px] -mt-[0.5px] ${
-                isCurrentUser ? 'border-t-amber-400' : 'border-t-[#0f172a]/85'
-              }`}
-            />
-          </div>
-        </SafeHtml>
-      )}
-
-      {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên ghế (5s) ── */}
+      {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên đầu (Screenshot 2) ── */}
       {activeBubble && (
         <SafeHtml
-          position={[0, isDancing ? 2.35 : 2.15, 0.05]}
+          position={[0, isDancing ? 2.25 : 1.95, 0.05]}
           center
           distanceFactor={14}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
-          <div className="flex flex-col items-center animate-chat-bubble select-none">
-            <div
-              className="relative max-w-xs rounded-2xl px-3.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.55)] border border-white/90 flex flex-col items-center gap-0.5 text-center transition-all"
-              style={{
-                backgroundColor: '#edf1ed', // Màu trắng ngà WeTube Ciné
-                color: '#0f172a',
-              }}
-            >
-              {!activeBubble.message.startsWith('Đã chọn') && (
-                <div className="flex items-center gap-1.5 font-bold mb-0.5">
-                  <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: shirtColor }} />
-                  <span className="font-extrabold text-[10.5px] text-emerald-800">
-                    {nickname}
-                  </span>
-                  {isCurrentUser && <span className="text-[9px] text-lime-700 font-bold">(Bạn)</span>}
-                </div>
-              )}
-              <p className="text-xs font-bold leading-snug text-[#0f172a] break-words whitespace-nowrap">
-                {activeBubble.message}
-              </p>
+          <div className="flex flex-col items-center select-none pointer-events-none max-w-[240px]">
+            <div className="bg-[#edf1ed] text-[#0f172a] font-bold text-xs px-3.5 py-2 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.65)] border border-white/90 leading-snug whitespace-pre-wrap break-words text-center">
+              {activeBubble.message}
             </div>
-            {/* Mũi tên nhọn trỏ xuống ghế / đầu nhân vật */}
+            {/* Mũi tên tam giác chỉ xuống đầu nhân vật */}
             <div
               className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[7px] -mt-[1px]"
               style={{ borderTopColor: '#edf1ed' }}
             />
           </div>
-
-          <style jsx>{`
-            @keyframes chatBubbleLifecycle {
-              0% { opacity: 0; transform: scale(0.65) translateY(12px); }
-              8% { opacity: 1; transform: scale(1.05) translateY(-2px); }
-              14% { transform: scale(1) translateY(0); }
-              82% { opacity: 1; transform: scale(1) translateY(0); }
-              100% { opacity: 0; transform: scale(0.85) translateY(-14px); }
-            }
-            .animate-chat-bubble {
-              animation: chatBubbleLifecycle 5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            }
-          `}</style>
         </SafeHtml>
       )}
     </group>
