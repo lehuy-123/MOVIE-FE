@@ -164,16 +164,15 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
       <SpeakerTower x={SPEAKER_X} z={screenZ + 1.6} side={1} />
 
       {/* 3. Trái châu (Quả cầu gương disco) treo trên cao phía trước màn chiếu - KHÔNG BỊ KHUẤT */}
-      {/* Màn chiếu cao đến Y=16.33. Trái châu treo tại Y=17.5, Z=screenZ+3.2 (hoàn toàn phía trên và phía trước màn hình) */}
-      <group ref={discoBallRef} position={[0, 17.5, screenZ + 3.2]}>
+      <group ref={discoBallRef} position={[0, 18.0, screenZ + 3.4]}>
         {/* Dây cáp treo thả từ trần rạp (Y=19) xuống quả cầu */}
-        <mesh position={[0, 0.75, 0]}>
-          <cylinderGeometry args={[0.016, 0.016, 1.5, 8]} />
+        <mesh position={[0, 0.52, 0]}>
+          <cylinderGeometry args={[0.015, 0.015, 1.05, 8]} />
           <meshStandardMaterial color="#94a3b8" metalness={0.9} />
         </mesh>
         {/* Quả cầu gương lấp lánh phản chiếu ánh sáng */}
         <mesh>
-          <sphereGeometry args={[0.68, 24, 24]} />
+          <sphereGeometry args={[0.6, 24, 24]} />
           <meshStandardMaterial
             color="#e2e8f0"
             metalness={0.95}

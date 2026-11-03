@@ -11,11 +11,11 @@ export const ROOM = {
 export const ROOM_DEPTH = ROOM.zBack - ROOM.zFront;
 export const ROOM_CENTER_Z = (ROOM.zBack + ROOM.zFront) / 2;
 
-/** Màn chiếu 16:9 gắn sát tường trước. */
+/** Màn chiếu 16:9 siêu lớn IMAX gắn sát tường trước (chiều rộng 27.2m x chiều cao 15.3m). */
 export const SCREEN = {
-  width: 25,
-  height: 14.0625,
-  y: 9.3,
+  width: 27.2,
+  height: 15.3,
+  y: 9.4,
   z: -10.4,
 } as const;
 

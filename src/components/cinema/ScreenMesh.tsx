@@ -48,7 +48,7 @@ function getObjectCSSMatrix(matrix: THREE.Matrix4, factor: number) {
   return getCSSMatrix(matrix, objectMultipliers(factor), 'translate(-50%,-50%)');
 }
 
-/** Tạo texture chữ 'WETUBE CINÉ' màu bạc trắng in nổi trên viền dưới màn chiếu */
+/** Tạo texture chữ 'LEHUY' màu bạc trắng in nổi trên viền dưới màn chiếu */
 function useBrandingTexture(): THREE.CanvasTexture | null {
   return useMemo(() => {
     if (typeof document === 'undefined') return null;
@@ -61,15 +61,15 @@ function useBrandingTexture(): THREE.CanvasTexture | null {
     ctx.clearRect(0, 0, 512, 64);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = "900 28px 'Inter', system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = "900 32px 'Inter', system-ui, -apple-system, sans-serif";
     try {
       // @ts-ignore
-      ctx.letterSpacing = '8px';
+      ctx.letterSpacing = '10px';
     } catch {
       // ignore
     }
-    ctx.fillText('WETUBE CINÉ', 256, 34);
+    ctx.fillText('LEHUY', 256, 34);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -78,11 +78,11 @@ function useBrandingTexture(): THREE.CanvasTexture | null {
 }
 
 export function ScreenMesh({
-  width = 25,              // Chuẩn 16:9 cinema width
-  height = 14.0625,        // Chuẩn 16:9 cinema height
-  position = [0, 9.3, -10.4],
+  width = 27.2,             // Kích thước IMAX mở rộng (16:9)
+  height = 15.3,            // Kích thước IMAX mở rộng (16:9)
+  position = [0, 9.4, -10.4],
   rotation = [0, 0, 0],
-  isDimmed = false,
+  isDimmed = true,
   isPlaying = true,
   onScreenTransform,
 }: ScreenMeshProps) {
@@ -128,7 +128,6 @@ export function ScreenMesh({
     const time = state.clock.getElapsedTime();
     if (isPlaying) {
       const flicker = Math.sin(time * 2.8) * 0.25 + Math.cos(time * 5.7) * 0.15;
-      // Ánh sáng màn chiếu dịu nhẹ vừa phải, không làm mờ nhoè màn hình
       const baseGlow = isDimmed ? 3.0 : 1.5;
       const baseSpot = isDimmed ? 4.5 : 2.0;
       const baseAmbient = isDimmed ? 1.0 : 0.4;
@@ -197,16 +196,16 @@ export function ScreenMesh({
         <meshStandardMaterial color="#090c12" roughness={0.8} />
       </mesh>
 
-      {/* Viền dưới dày hơn mang thương hiệu WETUBE CINÉ */}
+      {/* Viền dưới dày hơn mang thương hiệu LEHUY */}
       <mesh position={[0, -height / 2 - bottomBezelHeight / 2, 0.02]}>
         <boxGeometry args={[width + 0.6, bottomBezelHeight, 0.12]} />
         <meshStandardMaterial color="#090c12" roughness={0.8} />
       </mesh>
 
-      {/* Logo chữ 'WETUBE CINÉ' màu bạc trắng in chính giữa viền dưới màn hình (Screenshot 1 & 2) */}
+      {/* Logo chữ 'LEHUY' màu bạc trắng in chính giữa viền dưới màn hình */}
       {brandingTex && (
         <mesh position={[0, -height / 2 - bottomBezelHeight / 2 + 0.03, 0.09]}>
-          <planeGeometry args={[4.2, 0.52]} />
+          <planeGeometry args={[3.8, 0.52]} />
           <meshBasicMaterial map={brandingTex} transparent depthWrite={false} toneMapped={false} />
         </mesh>
       )}

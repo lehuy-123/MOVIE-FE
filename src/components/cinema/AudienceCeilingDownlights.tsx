@@ -72,20 +72,6 @@ export function AudienceCeilingDownlights({ isDimmed = true }: AudienceCeilingDo
                 distance={23}
                 decay={1.6}
               />
-
-              {/* Luồng sáng nón hình học mờ nhẹ thể hiện ánh đèn rọi từ trần xuống ghế */}
-              <mesh position={[0, -8.6, 0]} rotation={[0, 0, 0]}>
-                <cylinderGeometry args={[0.28, 2.8, 17.2, 16, 1, true]} />
-                <meshBasicMaterial
-                  color="#ffecc9"
-                  transparent
-                  opacity={0.035}
-                  blending={THREE.AdditiveBlending}
-                  side={THREE.DoubleSide}
-                  depthWrite={false}
-                  toneMapped={false}
-                />
-              </mesh>
             </>
           )}
         </group>
