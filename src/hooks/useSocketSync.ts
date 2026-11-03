@@ -417,7 +417,8 @@ export function useSocketSync({
 
       if (actualTime > 0) {
         const drift = Math.abs(actualTime - expectedTime);
-        if (drift > 1.2) {
+        // Ngưỡng 3.5s tránh micro-seek liên tục làm đứt quãng âm thanh / lệch hình
+        if (drift > 3.5) {
           console.log(
             `[useSocketSync] Periodic drift correction: ${drift.toFixed(2)}s drift. Seeking to ${expectedTime.toFixed(2)}s`
           );

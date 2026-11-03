@@ -115,17 +115,14 @@ function SideWall({ side, glow, isDimmed }: { side: -1 | 1; glow: THREE.Texture;
         </mesh>
       ))}
 
-      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên (hạ sáng dịu mắt khi tắt đèn rạp) */}
-      {[-6, 0, 6, 12, 18].map((z) => (
-        <pointLight
-          key={`warm-${z}`}
-          position={[wallX + inward * 1.8, 8.5, z]}
-          color="#ffb866"
-          intensity={isDimmed ? 2.5 : 36}
-          distance={isDimmed ? 14 : 22}
-          decay={1.8}
-        />
-      ))}
+      {/* 1 Đèn rọi tường ấm gộp chung mỗi bên (Tối ưu GPU cực cao, thay thế 5 đèn riêng lẻ) */}
+      <pointLight
+        position={[wallX + inward * 1.8, 8.5, 6.0]}
+        color="#ffb866"
+        intensity={isDimmed ? 4.0 : 36}
+        distance={isDimmed ? 18 : 26}
+        decay={1.6}
+      />
     </group>
   );
 }

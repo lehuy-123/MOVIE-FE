@@ -55,12 +55,14 @@ export function CinemaScene({
     <>
       <color attach="background" args={['#05070b']} />
 
-      {/* Camera: mặc định góc cao bao quát từ phía sau; giới hạn do CinemaCameraController áp dụng */}
+      {/* Camera: mặc định góc cao bao quát từ phía sau; thao tác vuốt/xoay cực mượt 60 FPS */}
       <OrbitControls
         ref={controlsRef}
         target={OVERVIEW_CAMERA.target}
         enableDamping
-        dampingFactor={0.07}
+        dampingFactor={0.12}
+        rotateSpeed={0.85}
+        panSpeed={0.8}
       />
       <CinemaCameraController
         mode={cameraMode}

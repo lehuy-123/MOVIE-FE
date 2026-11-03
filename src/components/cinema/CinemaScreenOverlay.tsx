@@ -57,6 +57,10 @@ export const CinemaScreenOverlay = forwardRef<
   const durationRef = useRef(0);
   const isProgrammaticSeekRef = useRef(false);
   const isProgrammaticPlaybackRef = useRef(false);
+  const lastOuterRef = useRef('');
+  const lastInnerRef = useRef('');
+  const lastPerspectiveRef = useRef('');
+  const lastVisibleRef = useRef(true);
 
   // Helper to build YouTube Embed URL with JS API, origin and playsinline
   const buildEmbedUrl = useCallback((id: string, start = 0) => {
@@ -422,15 +426,28 @@ export const CinemaScreenOverlay = forwardRef<
       ) => {
         if (!outerRef.current || !innerRef.current) return;
         if (!isVisible) {
-          outerRef.current.style.display = 'none';
+          if (lastVisibleRef.current !== false) {
+            lastVisibleRef.current = false;
+            outerRef.current.style.display = 'none';
+          }
           return;
         }
-        outerRef.current.style.display = 'block';
-        if (containerRef.current && perspective) {
+        if (lastVisibleRef.current !== true) {
+          lastVisibleRef.current = true;
+          outerRef.current.style.display = 'block';
+        }
+        if (lastPerspectiveRef.current !== perspective && containerRef.current && perspective) {
+          lastPerspectiveRef.current = perspective;
           containerRef.current.style.perspective = perspective;
         }
-        outerRef.current.style.transform = outerTransform;
-        innerRef.current.style.transform = innerTransform;
+        if (lastOuterRef.current !== outerTransform) {
+          lastOuterRef.current = outerTransform;
+          outerRef.current.style.transform = outerTransform;
+        }
+        if (lastInnerRef.current !== innerTransform) {
+          lastInnerRef.current = innerTransform;
+          innerRef.current.style.transform = innerTransform;
+        }
       },
     }),
     [currentId, localPlaying, postCommand, buildEmbedUrl]

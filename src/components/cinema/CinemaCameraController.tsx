@@ -149,42 +149,36 @@ export function CinemaCameraController({ mode, selectedSeat, controlsRef, resetK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poseKey]);
 
-  // Pan nhẹ: kẹp target (và dịch camera theo) trong hộp giới hạn ở overview
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    const onChange = () => {
-      if (modeRef.current !== 'overview' || isTransitioning.current) return;
-      const clamped = controls.target.clone().clamp(PAN_MIN, PAN_MAX);
-      if (!clamped.equals(controls.target)) {
-        camera.position.add(clamped.clone().sub(controls.target));
-        controls.target.copy(clamped);
-      }
-    };
-    controls.addEventListener('change', onChange);
-    return () => controls.removeEventListener('change', onChange);
-  }, [controlsRef, camera]);
-
   useFrame((_, delta) => {
-    if (!isTransitioning.current) return;
-    const p = pose.current;
-    const factor = Math.min(delta * 4.5, 0.15);
+    if (isTransitioning.current) {
+      const p = pose.current;
+      const factor = Math.min(delta * 4.5, 0.15);
 
-    camera.position.lerp(p.position, factor);
-    lookCurrent.current.lerp(p.look, factor);
-    camera.lookAt(lookCurrent.current);
+      camera.position.lerp(p.position, factor);
+      lookCurrent.current.lerp(p.look, factor);
+      camera.lookAt(lookCurrent.current);
 
-    if (camera.position.distanceTo(p.position) < 0.06 && lookCurrent.current.distanceTo(p.look) < 0.1) {
-      camera.position.copy(p.position);
-      camera.lookAt(p.look);
-      isTransitioning.current = false;
+      if (camera.position.distanceTo(p.position) < 0.06 && lookCurrent.current.distanceTo(p.look) < 0.1) {
+        camera.position.copy(p.position);
+        camera.lookAt(p.look);
+        isTransitioning.current = false;
 
+        const controls = controlsRef.current;
+        if (controls) {
+          controls.target.copy(p.controlsTarget);
+          p.apply(controls);
+          controls.enabled = true;
+          controls.update();
+        }
+      }
+    } else if (modeRef.current === 'overview') {
       const controls = controlsRef.current;
-      if (controls) {
-        controls.target.copy(p.controlsTarget);
-        p.apply(controls);
-        controls.enabled = true;
-        controls.update();
+      if (controls && controls.enabled) {
+        const clamped = controls.target.clone().clamp(PAN_MIN, PAN_MAX);
+        if (!clamped.equals(controls.target)) {
+          camera.position.add(clamped.clone().sub(controls.target));
+          controls.target.copy(clamped);
+        }
       }
     }
   });

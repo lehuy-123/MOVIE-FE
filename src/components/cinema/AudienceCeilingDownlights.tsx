@@ -32,33 +32,41 @@ export function AudienceCeilingDownlights({ isDimmed = true }: AudienceCeilingDo
 
   return (
     <group name="audience-ceiling-downlights">
+      {/* 12 Đèn âm trần trang trí (Chao kim loại + mặt kính phát sáng) - Tối ưu 60 FPS */}
       {fixtures.map((f) => (
         <group key={f.id} position={[f.x, CEILING_Y, f.z]}>
           {/* 1. Chao đèn kim loại đen âm trần */}
           <mesh position={[0, 0.04, 0]}>
-            <cylinderGeometry args={[0.38, 0.42, 0.1, 18]} />
+            <cylinderGeometry args={[0.38, 0.42, 0.1, 14]} />
             <meshStandardMaterial color="#0b0f17" roughness={0.5} metalness={0.7} />
           </mesh>
 
           {/* 2. Mặt kính bóng đèn tròn toả sáng */}
           <mesh position={[0, -0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.3, 18]} />
+            <circleGeometry args={[0.3, 14]} />
             <meshBasicMaterial
               color={isDimmed ? '#451a03' : '#fff7e6'}
               toneMapped={false}
             />
           </mesh>
-
-          {/* 3. Đèn rọi Three.js chiếu từ trần xuống sàn và ghế (hạ tối khi tắt đèn rạp) */}
-          <pointLight
-            position={[0, -0.5, 0]}
-            color="#fef3c7"
-            intensity={isDimmed ? 0.6 : 26}
-            distance={25}
-            decay={1.8}
-          />
         </group>
       ))}
+
+      {/* 2 Nguồn sáng rọi trần gộp chung (Tối ưu GPU cực cao, thay thế 12 đèn riêng lẻ) */}
+      <pointLight
+        position={[0, CEILING_Y - 1.0, 5.0]}
+        color="#fef3c7"
+        intensity={isDimmed ? 1.5 : 32}
+        distance={28}
+        decay={1.6}
+      />
+      <pointLight
+        position={[0, CEILING_Y - 1.0, 13.0]}
+        color="#fef3c7"
+        intensity={isDimmed ? 1.5 : 32}
+        distance={28}
+        decay={1.6}
+      />
     </group>
   );
 }

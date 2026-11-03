@@ -626,7 +626,7 @@ export default function CinemaCanvas({
             powerPreference: 'high-performance',
             alpha: false,
           }}
-          dpr={[1, 1.5]}
+          dpr={[1, 1.25]}
           className="w-full h-full"
         >
           <Suspense fallback={null}>
