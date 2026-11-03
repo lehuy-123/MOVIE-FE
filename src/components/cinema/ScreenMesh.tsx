@@ -138,7 +138,7 @@ export function ScreenMesh({
     <group ref={groupRef} position={position} rotation={rotation} name="imax-screen-rig">
       {/* 1. Khung viền màn chiếu màu đen mờ sang trọng */}
       <mesh position={[0, 0, -0.05]}>
-        <boxGeometry args={[width + 0.8, height + 0.8, 0.4]} />
+        <boxGeometry args={[width + 0.35, height + 0.35, 0.3]} />
         <meshStandardMaterial color="#020305" roughness={0.9} metalness={0.1} />
       </mesh>
 
@@ -155,12 +155,12 @@ export function ScreenMesh({
       </mesh>
 
       {/* 3. Dải viền Ambilight phía sau khung màn chiếu */}
-      <mesh position={[0, 0, -0.1]}>
-        <planeGeometry args={[width + 1.2, height + 1.2]} />
+      <mesh position={[0, 0, -0.08]}>
+        <planeGeometry args={[width + 0.6, height + 0.6]} />
         <meshBasicMaterial
           color={isPlaying ? '#60a5fa' : '#334155'}
           transparent
-          opacity={isPlaying ? 0.75 : 0.25}
+          opacity={isPlaying ? 0.6 : 0.2}
         />
       </mesh>
 

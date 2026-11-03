@@ -13,6 +13,7 @@ interface WeTubeAvatarProps {
   rotation?: [number, number, number];
   isDancing?: boolean;
   isCurrentUser?: boolean;
+  seatId?: string | null;
   activeBubble?: ChatMessage;
 }
 
@@ -99,6 +100,7 @@ export function WeTubeAvatar({
   rotation = [0, 0, 0],
   isDancing = false,
   isCurrentUser = false,
+  seatId,
   activeBubble,
 }: WeTubeAvatarProps) {
   const look = useMemo(() => {
@@ -201,19 +203,88 @@ export function WeTubeAvatar({
           </>
         )}
 
+        {/* ── Mũ Noel Giáng Sinh (Santa Claus Hat) ── */}
+        <group position={[0, 1.15, 0.05]} rotation={[0.08, 0, 0.12]}>
+          {/* Vành lông trắng */}
+          <mesh position={[0, 0, 0]}>
+            <cylinderGeometry args={[0.27, 0.29, 0.09, 18]} />
+            <meshStandardMaterial color="#f8fafc" roughness={0.9} />
+          </mesh>
+          {/* Nón đỏ uốn nhẹ */}
+          <group position={[0, 0.04, 0]} rotation={[0.12, 0, 0.18]}>
+            <mesh position={[0, 0.18, 0]}>
+              <coneGeometry args={[0.25, 0.42, 18]} />
+              <meshStandardMaterial color="#dc2626" roughness={0.4} />
+            </mesh>
+            {/* Quả cầu bông trắng */}
+            <mesh position={[0.07, 0.38, -0.04]}>
+              <sphereGeometry args={[0.075, 12, 12]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.8} />
+            </mesh>
+          </group>
+        </group>
+
         {/* Vòng sáng cho nhân vật của bạn */}
         {isCurrentUser && (
-          <mesh position={[0, 1.34, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.13, 0.015, 8, 24]} />
+          <mesh position={[0, 1.82, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.15, 0.016, 8, 24]} />
             <meshBasicMaterial color="#d8f95f" toneMapped={false} />
           </mesh>
         )}
       </group>
 
+      {/* ── Bảng tên nhỏ trên đầu nhân vật (Floating Nametag) ── */}
+      {!activeBubble && (
+        <SafeHtml
+          position={[0, isDancing ? 2.3 : 1.95, 0.06]}
+          center
+          distanceFactor={16}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          <div className="flex flex-col items-center select-none pointer-events-none">
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.7)] backdrop-blur-md border transition-transform ${
+                isCurrentUser
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 font-black shadow-[0_0_14px_rgba(251,191,36,0.5)] scale-105'
+                  : 'bg-[#0f172a]/85 text-white border-white/20 font-bold'
+              }`}
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0 shadow-sm"
+                style={{ backgroundColor: isCurrentUser ? '#0f172a' : (shirtColor || '#38bdf8') }}
+              />
+              <span className="text-[11px] leading-tight whitespace-nowrap tracking-tight font-extrabold">
+                {nickname || 'Khán giả'}
+              </span>
+              {isCurrentUser && (
+                <span className="text-[9px] uppercase tracking-wider font-extrabold px-1 rounded bg-black/20 text-black">
+                  Bạn
+                </span>
+              )}
+              {seatId && (
+                <span
+                  className={`text-[9.5px] font-bold opacity-80 ${
+                    isCurrentUser ? 'text-black/80' : 'text-amber-300'
+                  }`}
+                >
+                  · {seatId}
+                </span>
+              )}
+            </div>
+            {/* Mũi tên tam giác nhỏ chỉ xuống đỉnh mũ */}
+            <div
+              className={`w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-t-[4.5px] -mt-[0.5px] ${
+                isCurrentUser ? 'border-t-amber-400' : 'border-t-[#0f172a]/85'
+              }`}
+            />
+          </div>
+        </SafeHtml>
+      )}
+
       {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên ghế (5s) ── */}
       {activeBubble && (
         <SafeHtml
-          position={[0, 1.85, 0.05]}
+          position={[0, isDancing ? 2.35 : 2.15, 0.05]}
           center
           distanceFactor={14}
           style={{ pointerEvents: 'none', userSelect: 'none' }}

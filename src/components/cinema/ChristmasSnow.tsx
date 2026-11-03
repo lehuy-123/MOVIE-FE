@@ -3,28 +3,56 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ROOM, ROOM_DEPTH } from '@/lib/roomLayout';
+import { ROOM } from '@/lib/roomLayout';
 
 interface ChristmasSnowProps {
   count?: number;
 }
 
-export function ChristmasSnow({ count = 650 }: ChristmasSnowProps) {
-  const pointsRef = useRef<THREE.Points>(null);
+/** Tạo texture bông tuyết tròn mờ mềm mại (không bị góc cạnh hình vuông thô). */
+function useSoftSnowTexture(): THREE.CanvasTexture | null {
+  return useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
-  // Khởi tạo các bông tuyết ngẫu nhiên phân bố trong toàn bộ không gian rạp chiếu
+    const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.55)');
+    grad.addColorStop(0.8, 'rgba(255, 255, 255, 0.1)');
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(16, 16, 16, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }, []);
+}
+
+export function ChristmasSnow({ count = 65 }: ChristmasSnowProps) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const snowTex = useSoftSnowTexture();
+
+  // Khởi tạo số lượng ít (65 hạt), phân bố cách xa ống kính máy quay để tránh rối mắt
   const [positions, speeds, offsets] = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const spd = new Float32Array(count);
     const off = new Float32Array(count);
 
     for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * (ROOM.width - 1);
-      pos[i * 3 + 1] = Math.random() * (ROOM.height - 1) + 0.5;
-      pos[i * 3 + 2] = ROOM.zFront + 1 + Math.random() * (ROOM_DEPTH - 2);
+      // Phân bố trong rạp nhưng tránh quá sát camera (Z từ -8 đến +15, camera ở Z=26)
+      pos[i * 3] = (Math.random() - 0.5) * (ROOM.width - 4);
+      pos[i * 3 + 1] = 2.0 + Math.random() * (ROOM.height - 4);
+      pos[i * 3 + 2] = -8 + Math.random() * 22;
 
-      spd[i] = 0.9 + Math.random() * 1.6; // Tốc độ rơi êm dịu, nhẹ nhàng
-      off[i] = Math.random() * Math.PI * 2; // Góc dao động lượn sóng
+      spd[i] = 0.4 + Math.random() * 0.6; // Rơi rất chậm và dịu
+      off[i] = Math.random() * Math.PI * 2;
     }
     return [pos, spd, off];
   }, [count]);
@@ -38,18 +66,17 @@ export function ChristmasSnow({ count = 650 }: ChristmasSnowProps) {
 
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      // Tuyết rơi từ từ từ trên cao xuống
-      posArray[idx + 1] -= speeds[i] * delta * 1.4;
+      // Rơi nhẹ nhàng
+      posArray[idx + 1] -= speeds[i] * delta * 1.2;
 
-      // Hiệu ứng gió nhẹ thổi bồng bềnh
-      posArray[idx] += Math.sin(time * 0.9 + offsets[i]) * 0.012;
-      posArray[idx + 2] += Math.cos(time * 0.7 + offsets[i]) * 0.008;
+      // Đung đưa rất khẽ
+      posArray[idx] += Math.sin(time * 0.6 + offsets[i]) * 0.005;
 
-      // Khi bông tuyết chạm sàn, đưa trở lại trần rạp
-      if (posArray[idx + 1] < 0.2) {
-        posArray[idx + 1] = ROOM.height - 0.3;
-        posArray[idx] = (Math.random() - 0.5) * (ROOM.width - 1);
-        posArray[idx + 2] = ROOM.zFront + 1 + Math.random() * (ROOM_DEPTH - 2);
+      // Khi chạm tầm thấp thì đưa lên trần nhẹ nhàng
+      if (posArray[idx + 1] < 1.0) {
+        posArray[idx + 1] = ROOM.height - 1.5;
+        posArray[idx] = (Math.random() - 0.5) * (ROOM.width - 4);
+        posArray[idx + 2] = -8 + Math.random() * 22;
       }
     }
     posAttr.needsUpdate = true;
@@ -61,15 +88,15 @@ export function ChristmasSnow({ count = 650 }: ChristmasSnowProps) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
+        map={snowTex || undefined}
         color="#ffffff"
-        size={0.17}
+        size={0.08}
         sizeAttenuation
         transparent
-        opacity={0.85}
+        opacity={0.4}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />
     </points>
   );
 }
-

@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { WeTubeAvatar } from './WeTubeAvatar';
+import { ChristmasTree } from './ChristmasTree';
 
 interface WeTubeStageProps {
   screenZ?: number;
@@ -70,6 +71,10 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
       {/* 2. Hai loa cột lớn hai bên mép màn hình */}
       <SpeakerTower x={-SPEAKER_X} z={screenZ + 1.6} side={-1} />
       <SpeakerTower x={SPEAKER_X} z={screenZ + 1.6} side={1} />
+
+      {/* Cây thông Noel Giáng sinh hai bên cánh sân khấu (nằm hoàn toàn ngoài khung màn chiếu) */}
+      <ChristmasTree position={[-15.2, 0.9, screenZ + 2.2]} scale={0.72} />
+      <ChristmasTree position={[15.2, 0.9, screenZ + 2.2]} scale={0.72} />
 
       {/* 3. Quả cầu gương */}
       <group ref={discoBallRef} position={[0, 15.2, screenZ + 4.4]}>

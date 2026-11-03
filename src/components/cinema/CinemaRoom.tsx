@@ -130,31 +130,32 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
   );
 }
 
-/** Khung đèn neon mỏng bao quanh màn chiếu. */
+/** Khung viền neon ôm khít màn chiếu IMAX. */
 function ScreenNeonFrame() {
-  const t = 0.16;
-  const outerW = SCREEN.width + 0.9 + t * 2;
-  const outerH = SCREEN.height + 0.9 + t * 2;
-  const z = SCREEN.z + 0.03;
+  const t = 0.12;
+  const outerW = SCREEN.width + 0.15;
+  const outerH = SCREEN.height + 0.15;
+  const z = SCREEN.z + 0.02;
   return (
     <group position={[0, SCREEN.y, z]}>
-      <mesh position={[0, outerH / 2 - t / 2, 0]}>
-        <boxGeometry args={[outerW, t, t]} />
+      {/* Khung viền neon mỏng ôm khít chuẩn xác cạnh màn hình */}
+      <mesh position={[0, outerH / 2, 0]}>
+        <boxGeometry args={[outerW + t, t, t]} />
         <meshBasicMaterial color={NEON} toneMapped={false} />
       </mesh>
-      <mesh position={[0, -outerH / 2 + t / 2, 0]}>
-        <boxGeometry args={[outerW, t, t]} />
+      <mesh position={[0, -outerH / 2, 0]}>
+        <boxGeometry args={[outerW + t, t, t]} />
         <meshBasicMaterial color={NEON} toneMapped={false} />
       </mesh>
-      <mesh position={[-outerW / 2 + t / 2, 0, 0]}>
+      <mesh position={[-outerW / 2, 0, 0]}>
         <boxGeometry args={[t, outerH, t]} />
         <meshBasicMaterial color={NEON} toneMapped={false} />
       </mesh>
-      <mesh position={[outerW / 2 - t / 2, 0, 0]}>
+      <mesh position={[outerW / 2, 0, 0]}>
         <boxGeometry args={[t, outerH, t]} />
         <meshBasicMaterial color={NEON} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, -outerH / 2 - 0.5, 1.2]} color={NEON} intensity={14} distance={14} decay={2} />
+      <pointLight position={[0, 0, 1.0]} color={NEON} intensity={8} distance={12} decay={2} />
     </group>
   );
 }

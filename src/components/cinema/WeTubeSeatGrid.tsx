@@ -169,29 +169,9 @@ export function WeTubeSeatGrid({
                 shirtColor={seat.avatarColor || '#b9cf8f'}
                 position={[0, isVip ? 0.55 : 0.43, 0]}
                 isCurrentUser={isSelected}
+                seatId={seat.id}
                 activeBubble={seatBubble}
               />
-            )}
-
-            {/* 3. Floating Tooltip cho ghế của bạn / đã chọn (Màu trắng ngà Screenshot 5) */}
-            {isSelected && !seatBubble && (
-              <SafeHtml
-                position={[0, 1.85, 0.1]}
-                center
-                distanceFactor={15}
-                style={{ pointerEvents: 'none', userSelect: 'none' }}
-              >
-                <div className="flex flex-col items-center select-none">
-                  <div className="bg-[#edf1ed] text-[#0f172a] font-extrabold text-xs px-3.5 py-1.5 rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.55)] border border-white/90 whitespace-nowrap flex items-center gap-1.5">
-                    <span>Đã chọn {seat.id}</span>
-                    <span className="opacity-75 font-semibold text-[11px]">· {SEAT_KIND_LABEL[seat.type ?? 'single']}</span>
-                  </div>
-                  <div
-                    className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[7px] -mt-[1px]"
-                    style={{ borderTopColor: '#edf1ed' }}
-                  />
-                </div>
-              </SafeHtml>
             )}
           </group>
         );
