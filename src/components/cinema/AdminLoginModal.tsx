@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  Users,
 } from 'lucide-react';
+import type { ViewerInfo } from './CinemaHUD';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ interface AdminLoginModalProps {
   onLogin: (username: string, password: string) => Promise<{ ok: boolean; message?: string }>;
   onLogout: () => void;
   onOpenAddVideo?: () => void;
+  viewers?: ViewerInfo[];
+  onToggleUserControl?: (targetSocketId: string, canControl: boolean) => void;
 }
 
 export function AdminLoginModal({
@@ -32,6 +36,8 @@ export function AdminLoginModal({
   onLogin,
   onLogout,
   onOpenAddVideo,
+  viewers = [],
+  onToggleUserControl,
 }: AdminLoginModalProps) {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
@@ -125,6 +131,73 @@ export function AdminLoginModal({
                   Mở Bảng Đổi Phim / Chiếu Ngay
                 </button>
               )}
+
+              {/* Phân quyền điều khiển video cho từng khán giả */}
+              <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left">
+                <div className="mb-2.5 flex items-center justify-between text-[11px] font-bold text-white/70">
+                  <span className="flex items-center gap-1.5 uppercase tracking-wider">
+                    <Users className="h-3.5 w-3.5 text-amber-400" />
+                    Phân quyền điều khiển video
+                  </span>
+                  <span className="text-[10px] font-normal text-white/40">
+                    {viewers.filter((v) => !v.isMe).length} người khác
+                  </span>
+                </div>
+
+                <div className="max-h-[180px] overflow-y-auto space-y-1.5 pr-1">
+                  {viewers.filter((v) => !v.isMe).length === 0 ? (
+                    <p className="py-3 text-center text-xs text-white/35">
+                      Chưa có khán giả nào khác trong phòng.
+                    </p>
+                  ) : (
+                    viewers
+                      .filter((v) => !v.isMe)
+                      .map((v) => {
+                        const targetSocketId = v.socketId || v.id;
+                        const canUserControl = Boolean(v.isAdmin || v.canControl);
+                        return (
+                          <div
+                            key={v.id}
+                            className="flex items-center gap-2.5 rounded-xl bg-white/[0.04] p-2 text-xs"
+                          >
+                            <span
+                              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black"
+                              style={{ backgroundColor: v.color }}
+                            >
+                              {v.nickname.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-white/90">
+                                {v.nickname}
+                              </p>
+                              <p className="text-[10px] text-white/40">
+                                {v.seatId ? `Ghế ${v.seatId}` : 'Chưa ngồi'} ·{' '}
+                                {canUserControl ? (
+                                  <span className="text-[#d8f95f] font-medium">Được điều khiển</span>
+                                ) : (
+                                  <span>Chỉ xem</span>
+                                )}
+                              </p>
+                            </div>
+                            {!v.isAdmin && onToggleUserControl && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleUserControl(targetSocketId, !canUserControl)}
+                                className={`rounded-lg px-2.5 py-1 text-[10px] font-bold transition active:scale-95 ${
+                                  canUserControl
+                                    ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30'
+                                    : 'border border-[#d8f95f]/40 bg-[#d8f95f]/20 text-[#d8f95f] hover:bg-[#d8f95f]/30'
+                                }`}
+                              >
+                                {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
 
               <button
                 type="button"

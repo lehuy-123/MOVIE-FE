@@ -2,12 +2,14 @@ export type VideoPlaybackStatus = 'playing' | 'paused';
 
 export interface RoomUser {
   socketId: string;
+  sessionId?: string | null;
   nickname: string;
   seatId: string | null;
   avatarColor: string;
   gender?: 'Nam' | 'Nữ';
   joinedAt: number;
   isAdmin?: boolean;
+  canControl?: boolean;
 }
 
 export interface VideoRequestItem {
@@ -67,8 +69,8 @@ export interface VideoSyncPayload {
 }
 
 export interface ClientToServerEvents {
-  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string }) => void;
-  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string }) => void;
+  'join-room': (payload: { roomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string; sessionId?: string }) => void;
+  'switch-room': (payload: { newRoomId: string; nickname?: string; avatarColor?: string; gender?: 'Nam' | 'Nữ'; seatId?: string | null; adminToken?: string; sessionId?: string }) => void;
   'get-rooms': () => void;
   'create-room': (payload: { roomId: string; name: string }) => void;
   'admin-login': (payload: { username?: string; password?: string }, ack?: (res: { ok: boolean; token?: string; message?: string }) => void) => void;
@@ -85,6 +87,7 @@ export interface ClientToServerEvents {
   'user-chat': (payload: { message: string }) => void;
   'user-vote-skip': () => void;
   'user-update-profile': (payload: { nickname: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
+  'admin-toggle-control': (payload: { targetSocketId: string; canControl: boolean }) => void;
 }
 
 export interface ServerToClientEvents {

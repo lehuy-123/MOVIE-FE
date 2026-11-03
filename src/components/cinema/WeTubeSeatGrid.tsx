@@ -68,12 +68,12 @@ export function WeTubeSeatGrid({
 
         if (id === selectedSeatId) {
           state = 'selected';
-          occupantName = currentUserNickname;
-          avatarColor = currentUserShirtColor;
+          occupantName = (currentUserNickname && currentUserNickname.trim()) || 'Bạn';
+          avatarColor = currentUserShirtColor || '#86efac';
         } else if (occupiedSeats[id]) {
           state = 'occupied';
-          occupantName = occupiedSeats[id].nickname;
-          avatarColor = occupiedSeats[id].shirtColor;
+          occupantName = (occupiedSeats[id].nickname && occupiedSeats[id].nickname.trim()) || 'Khán giả';
+          avatarColor = occupiedSeats[id].shirtColor || '#93c5fd';
         }
 
         list.push({

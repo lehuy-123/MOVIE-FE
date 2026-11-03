@@ -30,9 +30,12 @@ export interface CinemaScreenOverlayHandle {
 export interface CinemaScreenOverlayProps {
   videoId: string;
   isPlaying?: boolean;
+  canControl?: boolean;
   onReady?: (controls: YouTubePlayerControls) => void;
   onStateChange?: (state: number) => void;
   onTogglePlay?: () => void;
+  onPlay?: (timestamp?: number) => void;
+  onPause?: (timestamp?: number) => void;
   onSeek?: (timestamp: number) => void;
   onOpenAddVideo?: () => void;
 }
@@ -40,7 +43,7 @@ export interface CinemaScreenOverlayProps {
 export const CinemaScreenOverlay = forwardRef<
   CinemaScreenOverlayHandle,
   CinemaScreenOverlayProps
->(({ videoId, isPlaying = true, onReady, onStateChange, onTogglePlay, onSeek, onOpenAddVideo }, ref) => {
+>(({ videoId, isPlaying = true, canControl = true, onReady, onStateChange, onTogglePlay, onPlay, onPause, onSeek, onOpenAddVideo }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -53,6 +56,7 @@ export const CinemaScreenOverlay = forwardRef<
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
   const isProgrammaticSeekRef = useRef(false);
+  const isProgrammaticPlaybackRef = useRef(false);
 
   // Helper to build YouTube Embed URL with JS API, origin and playsinline
   const buildEmbedUrl = useCallback((id: string, start = 0) => {
@@ -108,10 +112,21 @@ export const CinemaScreenOverlay = forwardRef<
     }
   }, [videoId, currentId, buildEmbedUrl, postCommand]);
 
-  // Sync prop isPlaying with local state
+  // Sync prop isPlaying with local YouTube player
   useEffect(() => {
     setLocalPlaying(isPlaying);
-  }, [isPlaying]);
+    if (!hasStarted) return;
+    isProgrammaticPlaybackRef.current = true;
+    if (isPlaying) {
+      postCommand('playVideo');
+    } else {
+      postCommand('pauseVideo');
+    }
+    const timer = setTimeout(() => {
+      isProgrammaticPlaybackRef.current = false;
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [isPlaying, hasStarted, postCommand]);
 
   // Periodic handshake / sync query to ensure YouTube iframe delivers currentTime & duration
   useEffect(() => {
@@ -164,6 +179,7 @@ export const CinemaScreenOverlay = forwardRef<
               !isProgrammaticSeekRef.current &&
               durationRef.current > 0 &&
               prevTime > 0 &&
+              canControl &&
               Math.abs(newTime - prevTime) > 2.0
             ) {
               console.log(
@@ -173,20 +189,43 @@ export const CinemaScreenOverlay = forwardRef<
             }
           }
           if (typeof data.info.playerState === 'number') {
-            const playing = data.info.playerState === 1;
+            const stateNum = data.info.playerState;
+            const playing = stateNum === 1;
             setLocalPlaying(playing);
-            if (data.info.playerState === 1 || data.info.playerState === 2) {
+            if (stateNum === 1 || stateNum === 2) {
               setHasStarted(true);
             }
-            onStateChange?.(data.info.playerState);
+            onStateChange?.(stateNum);
+
+            // User clicked pause or play directly on YouTube player
+            if (!isProgrammaticPlaybackRef.current && hasStarted && canControl) {
+              if (stateNum === 2 && isPlaying) {
+                console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe');
+                onPause?.(currentTimeRef.current);
+              } else if (stateNum === 1 && !isPlaying) {
+                console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe');
+                onPlay?.(currentTimeRef.current);
+              }
+            }
           }
         } else if (data.event === 'onStateChange') {
-          const playing = data.info === 1;
+          const stateNum = Number(data.info);
+          const playing = stateNum === 1;
           setLocalPlaying(playing);
-          if (data.info === 1 || data.info === 2) {
+          if (stateNum === 1 || stateNum === 2) {
             setHasStarted(true);
           }
-          onStateChange?.(data.info);
+          onStateChange?.(stateNum);
+
+          if (!isProgrammaticPlaybackRef.current && hasStarted && canControl) {
+            if (stateNum === 2 && isPlaying) {
+              console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe (onStateChange)');
+              onPause?.(currentTimeRef.current);
+            } else if (stateNum === 1 && !isPlaying) {
+              console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe (onStateChange)');
+              onPlay?.(currentTimeRef.current);
+            }
+          }
         }
       } catch {
         // Not a JSON message from YouTube iframe, ignore
@@ -195,7 +234,7 @@ export const CinemaScreenOverlay = forwardRef<
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onStateChange, postCommand, sendListening, onSeek]);
+  }, [onStateChange, postCommand, sendListening, onSeek, onPlay, onPause, isPlaying, hasStarted, canControl]);
 
   const handleIframeLoad = useCallback(() => {
     sendListening();
@@ -290,13 +329,21 @@ export const CinemaScreenOverlay = forwardRef<
         }, 1200);
       },
       play: () => {
+        isProgrammaticPlaybackRef.current = true;
         setHasStarted(true);
         setLocalPlaying(true);
         postCommand('playVideo');
+        setTimeout(() => {
+          isProgrammaticPlaybackRef.current = false;
+        }, 800);
       },
       pause: () => {
+        isProgrammaticPlaybackRef.current = true;
         setLocalPlaying(false);
         postCommand('pauseVideo');
+        setTimeout(() => {
+          isProgrammaticPlaybackRef.current = false;
+        }, 800);
       },
       seekTo: (sec: number) => {
         currentTimeRef.current = sec;
@@ -314,12 +361,20 @@ export const CinemaScreenOverlay = forwardRef<
         unMute: () => postCommand('unMute'),
         isMuted: () => false,
         playVideo: () => {
+          isProgrammaticPlaybackRef.current = true;
           setLocalPlaying(true);
           postCommand('playVideo');
+          setTimeout(() => {
+            isProgrammaticPlaybackRef.current = false;
+          }, 800);
         },
         pauseVideo: () => {
+          isProgrammaticPlaybackRef.current = true;
           setLocalPlaying(false);
           postCommand('pauseVideo');
+          setTimeout(() => {
+            isProgrammaticPlaybackRef.current = false;
+          }, 800);
         },
         seekTo: (sec: number) => {
           currentTimeRef.current = sec;
@@ -436,7 +491,7 @@ export const CinemaScreenOverlay = forwardRef<
               border: 0,
               position: 'absolute',
               inset: 0,
-              pointerEvents: 'auto',
+              pointerEvents: canControl ? 'auto' : 'none',
             }}
           />
 

@@ -15,6 +15,7 @@ import { RoomListModal } from './RoomListModal';
 import { AdminLoginModal } from './AdminLoginModal';
 import { useSocketSync } from '@/hooks/useSocketSync';
 import { YouTubePlayerControls } from '@/types/youtube';
+import { RoomUser } from '@/types/socket';
 import { SeatData, UserProfile, DEFAULT_SHIRT_COLOR } from '@/types/cinema';
 import { buildSeatData, getSeatKind, SEAT_KIND_LABEL } from '@/lib/seatLayout';
 
@@ -211,6 +212,8 @@ export default function CinemaCanvas({
     queue,
     isHost,
     isAdmin,
+    canControl,
+    adminToggleControl,
     adminLogin,
     adminLogout,
     activeBubbles,
@@ -253,21 +256,58 @@ export default function CinemaCanvas({
     [switchRoom]
   );
 
-  // Tự động khôi phục ghế ngồi của chính mình từ server nếu reconnect hoặc tải lại trang
+  // Lọc và khử trùng lặp người dùng (loại bỏ ghost socket do reload/reconnect)
+  const activeUsers = useMemo(() => {
+    const seen = new Set<string>();
+    const list: RoomUser[] = [];
+    for (const u of users) {
+      const key = (u.sessionId && u.sessionId.trim().length > 0) ? u.sessionId : u.socketId;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(u);
+      }
+    }
+    return list;
+  }, [users]);
+
+  // Tự động khôi phục & đồng bộ hai chiều ghế ngồi giữa client và server khi tải lại trang / reconnect
   useEffect(() => {
     if (!socketId || !users.length) return;
     const me = users.find((u) => u.socketId === socketId);
-    if (me?.seatId && (!selectedSeat || selectedSeat.id !== me.seatId)) {
-      const s = buildSeatData(me.seatId);
-      if (s) setSelectedSeat(s);
+    if (!me) return;
+
+    if (me.seatId) {
+      if (!selectedSeat || selectedSeat.id !== me.seatId) {
+        const s = buildSeatData(me.seatId);
+        if (s) setSelectedSeat(s);
+      }
+    } else if (selectedSeat?.id) {
+      // Server chưa ghi nhận ghế của mình nhưng client có ghế đã lưu:
+      // Kiểm tra xem ghế đó có bị người khác ngồi không
+      const isTaken = users.some((u) => u.socketId !== socketId && u.seatId === selectedSeat.id);
+      if (!isTaken) {
+        // Ghế vẫn còn trống, gửi lệnh nhận ghế ngay lên server
+        sendSelectSeat(selectedSeat.id, userProfile.nickname, userProfile.shirtColor, userProfile.gender);
+      } else {
+        // Ghế đã bị người khác chiếm mất, hủy ghế cục bộ
+        setSelectedSeat(null);
+        setUserProfile((prev) => {
+          const next = { ...prev, seatId: null };
+          try {
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+      }
     }
-  }, [users, socketId, selectedSeat]);
+  }, [users, socketId, selectedSeat, userProfile.nickname, userProfile.shirtColor, userProfile.gender, sendSelectSeat]);
 
   // Calculate real-time occupied seats map from connected users
   const occupiedSeats = useMemo(() => {
     const map: Record<string, { nickname: string; shirtColor: string }> = {};
-    users.forEach((u) => {
-      if (u.seatId && u.socketId !== socketId) {
+    const mySeatId = selectedSeat?.id;
+    activeUsers.forEach((u) => {
+      if (u.seatId && u.socketId !== socketId && u.seatId !== mySeatId) {
         map[u.seatId] = {
           nickname: u.nickname,
           shirtColor: u.avatarColor || '#93c5fd',
@@ -275,49 +315,60 @@ export default function CinemaCanvas({
       }
     });
     return map;
-  }, [users, socketId]);
+  }, [activeUsers, socketId, selectedSeat?.id]);
 
   const occupiedUserSeatIds = useMemo(
     () =>
-      users
-        .filter((u) => u.seatId && u.socketId !== socketId)
+      activeUsers
+        .filter((u) => u.seatId && u.socketId !== socketId && u.seatId !== selectedSeat?.id)
         .map((u) => u.seatId as string),
-    [users, socketId]
+    [activeUsers, socketId, selectedSeat?.id]
   );
 
   // Audience list for viewers popup in CinemaHUD - real connected users only
   const viewersList: ViewerInfo[] = useMemo(() => {
+    const meUser = activeUsers.find((u) => u.socketId === socketId);
     const list: ViewerInfo[] = [
       {
         id: socketId || 'local-me',
+        socketId: socketId || undefined,
         nickname: userProfile.nickname || 'Bạn',
         seatId: selectedSeat?.id ?? userProfile.seatId,
         color: userProfile.shirtColor,
         isMe: true,
+        isAdmin: isHost || meUser?.isAdmin,
+        canControl: canControl,
       },
     ];
 
-    users.forEach((u) => {
+    activeUsers.forEach((u) => {
       if (u.socketId !== socketId) {
         list.push({
           id: u.socketId,
+          socketId: u.socketId,
           nickname: u.nickname,
           seatId: u.seatId || null,
           color: u.avatarColor || '#93c5fd',
           isMe: false,
+          isAdmin: u.isAdmin,
+          canControl: u.canControl,
         });
       }
     });
 
     return list;
-  }, [users, socketId, userProfile.nickname, userProfile.seatId, userProfile.shirtColor, selectedSeat?.id]);
+  }, [activeUsers, socketId, userProfile.nickname, userProfile.seatId, userProfile.shirtColor, selectedSeat?.id, isHost, canControl]);
 
   const seatedCount = useMemo(() => {
-    const othersSeated = users.filter((u) => u.seatId && u.socketId !== socketId).length;
-    return othersSeated + (selectedSeat?.id ? 1 : 0);
-  }, [users, socketId, selectedSeat?.id]);
+    const seatSet = new Set<string>();
+    activeUsers.forEach((u) => {
+      if (u.seatId) seatSet.add(u.seatId);
+    });
+    if (selectedSeat?.id) seatSet.add(selectedSeat.id);
+    return seatSet.size;
+  }, [activeUsers, selectedSeat?.id]);
 
-  const realOnlineCount = Math.max(1, users.length);
+  const realOnlineCount = Math.max(1, activeUsers.length);
 
   const handlePlayerReady = useCallback(
     (controls: YouTubePlayerControls) => {
@@ -423,6 +474,7 @@ export default function CinemaCanvas({
   }, [sendLeaveSeat]);
 
   const handleTogglePlay = useCallback(() => {
+    if (!canControl) return;
     const isCurrentlyPlaying = roomState?.status !== 'paused';
     if (isCurrentlyPlaying) {
       sendPause();
@@ -432,7 +484,7 @@ export default function CinemaCanvas({
       screenRef.current?.play();
       screenRef.current?.getPlayer()?.unMute();
     }
-  }, [roomState?.status, sendPause, sendPlay]);
+  }, [roomState?.status, sendPause, sendPlay, canControl]);
 
   const handleAddVideo = useCallback(
     (newVidId: string, title?: string) => {
@@ -516,6 +568,8 @@ export default function CinemaCanvas({
         videoTitle={roomState?.videoTitle || videoTitle}
         suggester={roomState?.users?.find((u) => u.isAdmin)?.nickname || (isHost ? 'Admin' : 'Phòng chiếu')}
         isPlaying={roomState?.status !== 'paused'}
+        canControl={canControl}
+        onToggleUserControl={adminToggleControl}
         onTogglePlay={handleTogglePlay}
         onSeek={sendSeek}
         onlineCount={realOnlineCount}
@@ -551,8 +605,11 @@ export default function CinemaCanvas({
         ref={screenRef}
         videoId={videoId}
         isPlaying={roomState?.status !== 'paused'}
+        canControl={canControl}
         onReady={handlePlayerReady}
         onTogglePlay={handleTogglePlay}
+        onPlay={sendPlay}
+        onPause={sendPause}
         onSeek={sendSeek}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
       />
@@ -573,7 +630,7 @@ export default function CinemaCanvas({
             <CinemaScene
               selectedSeat={selectedSeat}
               occupiedSeats={occupiedSeats}
-              users={users}
+              users={activeUsers}
               activeBubbles={activeBubbles}
               currentSocketId={socketId}
               currentUserNickname={userProfile.nickname}
@@ -643,6 +700,8 @@ export default function CinemaCanvas({
         onLogin={adminLogin}
         onLogout={adminLogout}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
+        viewers={viewersList}
+        onToggleUserControl={adminToggleControl}
       />
     </div>
   );

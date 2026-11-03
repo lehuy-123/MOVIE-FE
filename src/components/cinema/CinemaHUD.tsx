@@ -33,6 +33,7 @@ import {
   Expand,
   Play,
   Pause,
+  Lock,
 } from 'lucide-react';
 import type { ScreenMeshHandle } from './ScreenMesh';
 import type { CameraMode } from './CinemaCameraController';
@@ -42,10 +43,13 @@ export type CameraPreset = 'chair' | 'monitor' | 'audience' | 'overview';
 
 export interface ViewerInfo {
   id: string;
+  socketId?: string;
   nickname: string;
   seatId: string | null;
   color: string;
   isMe: boolean;
+  isAdmin?: boolean;
+  canControl?: boolean;
 }
 
 interface CinemaHUDProps {
@@ -55,8 +59,10 @@ interface CinemaHUDProps {
   videoTitle: string;
   suggester?: string;
   isPlaying?: boolean;
+  canControl?: boolean;
   onTogglePlay?: () => void;
   onSeek?: (seconds: number) => void;
+  onToggleUserControl?: (targetSocketId: string, canControl: boolean) => void;
   onlineCount: number;
   seatedCount: number;
   totalSeats: number;
@@ -165,8 +171,10 @@ export function CinemaHUD({
   videoTitle,
   suggester = 'Phòng chiếu',
   isPlaying = true,
+  canControl = true,
   onTogglePlay,
   onSeek,
+  onToggleUserControl,
   onlineCount,
   seatedCount,
   totalSeats,
@@ -272,6 +280,13 @@ export function CinemaHUD({
         setShowEmoji(false);
       } else if (e.key === 'Enter' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'BUTTON') {
         chatInputRef.current?.focus();
+      } else if (e.key === ' ' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        if (!canControl) {
+          showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video!');
+          return;
+        }
+        onTogglePlay?.();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -389,9 +404,15 @@ export function CinemaHUD({
               </p>
               {/* Thanh tua thời gian video mượt mà */}
               <div
-                className="relative h-2 w-[220px] cursor-pointer rounded-full bg-white/15 overflow-hidden transition hover:h-2.5"
-                title="Bấm để tua video"
+                className={`relative h-2 w-[220px] rounded-full bg-white/15 overflow-hidden transition ${
+                  canControl ? 'cursor-pointer hover:h-2.5' : 'cursor-not-allowed opacity-60'
+                }`}
+                title={canControl ? 'Bấm để tua video' : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video'}
                 onClick={(e) => {
+                  if (!canControl) {
+                    showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video!');
+                    return;
+                  }
                   if (time.dur <= 0) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -440,14 +461,23 @@ export function CinemaHUD({
           <div className={`flex items-center gap-3.5 rounded-full px-4 py-2 text-xs ${glass}`}>
             <button
               type="button"
-              onClick={onTogglePlay}
-              title={isPlaying ? 'Bấm để tạm dừng video' : 'Bấm để tiếp tục phát video'}
-              className={`flex items-center gap-2 font-semibold transition hover:scale-105 active:scale-95 ${isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'}`}
+              onClick={() => {
+                if (!canControl) {
+                  showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video!');
+                  return;
+                }
+                onTogglePlay?.();
+              }}
+              title={canControl ? (isPlaying ? 'Bấm để tạm dừng video' : 'Bấm để tiếp tục phát video') : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video'}
+              className={`flex items-center gap-2 font-semibold transition hover:scale-105 active:scale-95 ${
+                !canControl ? 'opacity-70 text-white/50 cursor-not-allowed' : isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'
+              }`}
             >
               <span
                 className={`h-2 w-2 rounded-full ${isPlaying ? 'bg-[#d8f95f] animate-pulse' : 'bg-amber-300'}`}
               />
               {isPlaying ? 'Đang chiếu' : 'Tạm dừng'}
+              {!canControl && <Lock className="h-2.5 w-2.5 text-white/40 ml-0.5" />}
             </button>
             <span className="h-4 w-px bg-white/15" />
             <span className="flex items-center gap-2 text-white/80">
@@ -760,27 +790,89 @@ export function CinemaHUD({
           )}
 
           {bottomPanel === 'viewers' && (
-            <div className={`wt-step absolute bottom-full left-0 mb-3 w-[250px] rounded-2xl p-3 ${glass}`}>
+            <div className={`wt-step absolute bottom-full left-0 mb-3 w-[320px] sm:w-[350px] rounded-2xl p-3 ${glass}`}>
               <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-white/50">
-                <span>Người đang xem</span>
-                <span className="text-white/30">{viewers.length}</span>
+                <span className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-white/70" />
+                  Khán giả trong rạp
+                </span>
+                <span className="text-white/40">{viewers.length} online</span>
               </div>
-              <div className="wt-scroll flex max-h-[260px] flex-col gap-0.5 overflow-y-auto pr-1">
-                {viewers.map((v) => (
-                  <div key={v.id} className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-xs">
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-black"
-                      style={{ backgroundColor: v.color }}
+              <div className="wt-scroll flex max-h-[300px] flex-col gap-1 overflow-y-auto pr-1">
+                {viewers.map((v) => {
+                  const targetSocketId = v.socketId || v.id;
+                  const canUserControl = Boolean(v.isAdmin || v.canControl);
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex items-center gap-2.5 rounded-xl bg-white/[0.03] px-2.5 py-2 text-xs transition hover:bg-white/[0.07]"
                     >
-                      {v.nickname.charAt(0).toUpperCase()}
-                    </span>
-                    <span className="truncate font-semibold text-white/90">
-                      {v.nickname}
-                      {v.isMe && <span className="ml-1 font-normal text-[#d8f95f]">(Bạn)</span>}
-                    </span>
-                    <span className="ml-auto font-mono text-[10px] text-white/40">{v.seatId ?? '—'}</span>
-                  </div>
-                ))}
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-black"
+                        style={{ backgroundColor: v.color }}
+                      >
+                        {v.nickname.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="truncate font-semibold text-white/90">
+                            {v.nickname}
+                          </span>
+                          {v.isMe && (
+                            <span className="shrink-0 text-[10px] font-normal text-[#d8f95f]">
+                              (Bạn)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {v.isAdmin ? (
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded border border-amber-400/40">
+                              <Crown className="h-2.5 w-2.5" /> Host
+                            </span>
+                          ) : canUserControl ? (
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-[#d8f95f] bg-[#d8f95f]/15 px-1.5 py-0.5 rounded border border-[#d8f95f]/30">
+                              <Film className="h-2.5 w-2.5" /> Được điều khiển
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded">
+                              Khán giả
+                            </span>
+                          )}
+                          <span className="font-mono text-[10px] text-white/35">
+                            {v.seatId ? `Ghế ${v.seatId}` : 'Chưa ngồi'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Nút phân quyền cho Admin */}
+                      {isAdmin && !v.isAdmin && !v.isMe && onToggleUserControl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onToggleUserControl(targetSocketId, !canUserControl);
+                            showToast(
+                              !canUserControl
+                                ? `Đã cấp quyền điều khiển cho ${v.nickname}`
+                                : `Đã thu hồi quyền điều khiển của ${v.nickname}`
+                            );
+                          }}
+                          title={
+                            canUserControl
+                              ? 'Thu hồi quyền điều khiển video'
+                              : 'Cấp quyền điều khiển video (Tua, Dừng, Phát)'
+                          }
+                          className={`shrink-0 rounded-lg px-2.5 py-1 text-[10.5px] font-bold transition active:scale-95 ${
+                            canUserControl
+                              ? 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
+                              : 'border border-[#d8f95f]/40 bg-[#d8f95f]/15 text-[#d8f95f] hover:bg-[#d8f95f]/25'
+                          }`}
+                        >
+                          {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -843,9 +935,15 @@ export function CinemaHUD({
         <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl p-1 ${glass}`}>
           <button
             type="button"
-            onClick={onTogglePlay}
-            className={`${iconBtn} ${isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'}`}
-            title={isPlaying ? 'Tạm dừng video' : 'Phát tiếp tục'}
+            onClick={() => {
+              if (!canControl) {
+                showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video!');
+                return;
+              }
+              onTogglePlay?.();
+            }}
+            className={`${iconBtn} ${!canControl ? 'opacity-50 text-white/40 cursor-not-allowed' : isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'}`}
+            title={canControl ? (isPlaying ? 'Tạm dừng video' : 'Phát tiếp tục') : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển'}
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
@@ -853,20 +951,30 @@ export function CinemaHUD({
           {/* Thanh tua thời gian ở thanh điều khiển đáy */}
           <div className="hidden items-center gap-2 px-1 lg:flex">
             <span className="text-[10px] tabular-nums font-mono text-white/50">{formatTime(time.cur)}</span>
-            <input
-              type="range"
-              min={0}
-              max={time.dur > 0 ? Math.floor(time.dur) : 100}
-              value={Math.floor(time.cur)}
-              onChange={(e) => {
-                const target = parseFloat(e.target.value);
-                onSeek?.(target);
-                screenRef.current?.seekTo(target);
-              }}
-              className="h-1 w-20 xl:w-28 cursor-pointer appearance-none rounded-full bg-white/20 accent-[#d8f95f]"
-              aria-label="Tua video"
-              title="Kéo để tua video nhanh"
-            />
+            <div className="relative flex items-center">
+              <input
+                type="range"
+                min={0}
+                max={time.dur > 0 ? Math.floor(time.dur) : 100}
+                value={Math.floor(time.cur)}
+                disabled={!canControl}
+                onChange={(e) => {
+                  if (!canControl) {
+                    showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video!');
+                    return;
+                  }
+                  const target = parseFloat(e.target.value);
+                  onSeek?.(target);
+                  screenRef.current?.seekTo(target);
+                }}
+                className={`h-1 w-20 xl:w-28 appearance-none rounded-full bg-white/20 accent-[#d8f95f] ${
+                  canControl ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
+                }`}
+                aria-label="Tua video"
+                title={canControl ? 'Kéo để tua video nhanh' : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video'}
+              />
+              {!canControl && <Lock className="ml-1 h-2.5 w-2.5 text-white/35" />}
+            </div>
             <span className="text-[10px] tabular-nums font-mono text-white/40">{formatTime(time.dur)}</span>
           </div>
 

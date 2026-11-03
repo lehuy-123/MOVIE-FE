@@ -16,6 +16,21 @@ import { ScreenMeshHandle } from '@/components/cinema/ScreenMesh';
 
 const ADMIN_TOKEN_KEY = 'wetube-cine:admin-token';
 const CHAT_HISTORY_KEY = 'wetube-cine:chat-history';
+const SESSION_ID_KEY = 'wetube-cine:session-id';
+
+function getClientSessionId(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    let sid = sessionStorage.getItem(SESSION_ID_KEY);
+    if (!sid) {
+      sid = 'sid_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+      sessionStorage.setItem(SESSION_ID_KEY, sid);
+    }
+    return sid;
+  } catch {
+    return 'sid_fallback_' + Date.now();
+  }
+}
 
 interface UseSocketSyncOptions {
   serverUrl?: string;
@@ -69,6 +84,10 @@ export function useSocketSync({
         users.find((u) => u.socketId === socketId)?.isAdmin)
   );
 
+  // Current user is permitted to control video if Admin OR granted by Admin
+  const currentUser = users.find((u) => u.socketId === socketId);
+  const canControl = Boolean(isHost || currentUser?.isAdmin || currentUser?.canControl);
+
   // Flag to avoid feedback loops from local user actions
   const isPerformingLocalAction = useRef(false);
   const currentVideoIdRef = useRef<string | null>(null);
@@ -113,10 +132,13 @@ export function useSocketSync({
       if (isSender) return;
 
       if (status === 'paused') {
-        if (Math.abs(currentTime - timestamp) > 0.5) {
-          player.seekTo(timestamp);
-        }
         player.pause();
+        if (Math.abs(currentTime - timestamp) > 1.2) {
+          player.seekTo(timestamp);
+          setTimeout(() => {
+            player.pause();
+          }, 150);
+        }
       } else {
         const drift = Math.abs(currentTime - expectedTime);
         // Only seek if currentTime is 0 (newly loading) or drift is noticeable (> 1.2s)
@@ -178,6 +200,8 @@ export function useSocketSync({
         savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
       } catch {}
 
+      const clientSessionId = getClientSessionId();
+
       socket.emit('join-room', {
         roomId,
         nickname: activeNick,
@@ -185,6 +209,7 @@ export function useSocketSync({
         gender: activeGender,
         seatId: activeSeatId,
         adminToken: savedAdminToken,
+        sessionId: clientSessionId,
       });
     });
 
@@ -259,8 +284,18 @@ export function useSocketSync({
       const isSender = Boolean(payload.senderId && socketRef.current && payload.senderId === socketRef.current.id);
       if (isSender) return;
 
-      screenRef.current?.seekTo(payload.timestamp);
+      console.log(`[useSocketSync] sync-pause from ${payload.senderId}: pausing at ${payload.timestamp.toFixed(2)}s`);
+      // 1. Immediately pause local player
       screenRef.current?.pause();
+
+      // 2. Align timestamp if drift is noticeable
+      const cur = screenRef.current?.getCurrentTime() ?? 0;
+      if (Math.abs(cur - payload.timestamp) > 1.2) {
+        screenRef.current?.seekTo(payload.timestamp);
+        setTimeout(() => {
+          screenRef.current?.pause();
+        }, 150);
+      }
     });
 
     // 5. Listen for sync-seek event
@@ -301,6 +336,21 @@ export function useSocketSync({
     // 7. Listen for real-time user updates (seats & join/leave)
     socket.on('users-updated', (updatedUsers: RoomUser[]) => {
       setUsers(updatedUsers);
+    });
+
+    socket.on('user-joined', (newUser: RoomUser) => {
+      setUsers((prev) => {
+        const filtered = prev.filter(
+          (u) =>
+            u.socketId !== newUser.socketId &&
+            (!newUser.sessionId || u.sessionId !== newUser.sessionId)
+        );
+        return [...filtered, newUser];
+      });
+    });
+
+    socket.on('user-left', ({ socketId: leftSocketId }) => {
+      setUsers((prev) => prev.filter((u) => u.socketId !== leftSocketId));
     });
 
     // 8. Listen for incoming 3D chat messages (Phase 5)
@@ -385,6 +435,10 @@ export function useSocketSync({
 
   const sendPlay = useCallback(
     (currentTime?: number) => {
+      if (!canControl) {
+        console.warn('[useSocketSync] Permission denied: user cannot control video.');
+        return;
+      }
       isPerformingLocalAction.current = true;
       const ts = currentTime ?? screenRef.current?.getCurrentTime() ?? 0;
       // 1. Instant local play (0ms delay)
@@ -399,11 +453,15 @@ export function useSocketSync({
         isPerformingLocalAction.current = false;
       }, 1000);
     },
-    [screenRef]
+    [screenRef, canControl]
   );
 
   const sendPause = useCallback(
     (currentTime?: number) => {
+      if (!canControl) {
+        console.warn('[useSocketSync] Permission denied: user cannot control video.');
+        return;
+      }
       isPerformingLocalAction.current = true;
       const ts = currentTime ?? screenRef.current?.getCurrentTime() ?? 0;
       // 1. Instant local pause (0ms delay)
@@ -418,11 +476,15 @@ export function useSocketSync({
         isPerformingLocalAction.current = false;
       }, 1000);
     },
-    [screenRef]
+    [screenRef, canControl]
   );
 
   const sendSeek = useCallback(
     (seekTime: number) => {
+      if (!canControl) {
+        console.warn('[useSocketSync] Permission denied: user cannot control video.');
+        return;
+      }
       isPerformingLocalAction.current = true;
       const targetTime = Math.max(0, seekTime);
       // 1. Instant local seek (0ms delay)
@@ -437,8 +499,13 @@ export function useSocketSync({
         isPerformingLocalAction.current = false;
       }, 1200);
     },
-    [screenRef]
+    [screenRef, canControl]
   );
+
+  const adminToggleControl = useCallback((targetSocketId: string, allowed: boolean) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('admin-toggle-control', { targetSocketId, canControl: allowed });
+  }, []);
 
   const sendChangeVideo = useCallback((videoId: string, videoTitle?: string) => {
     if (!socketRef.current) return;
@@ -508,6 +575,7 @@ export function useSocketSync({
       newRoomId,
       nickname: activeNick,
       adminToken: savedAdminToken,
+      sessionId: getClientSessionId(),
     });
   }, []);
 
@@ -588,6 +656,8 @@ export function useSocketSync({
     queue,
     isHost,
     isAdmin: isHost,
+    canControl,
+    adminToggleControl,
     adminLogin,
     adminLogout,
     activeBubbles,
