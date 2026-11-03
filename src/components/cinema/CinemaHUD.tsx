@@ -244,11 +244,15 @@ export function CinemaHUD({
         if (!h) return;
         const cur = h.getCurrentTime();
         const dur = h.getDuration();
-        setTime((p) => (Math.floor(p.cur) === Math.floor(cur) && Math.floor(p.dur) === Math.floor(dur) ? p : { cur, dur }));
+        setTime((p) =>
+          Math.abs(p.cur - cur) < 0.25 && Math.abs(p.dur - dur) < 0.5
+            ? p
+            : { cur, dur }
+        );
       } catch {
         /* player chưa sẵn sàng */
       }
-    }, 1000);
+    }, 500);
     return () => clearInterval(id);
   }, [screenRef]);
 

@@ -553,6 +553,7 @@ export default function CinemaCanvas({
         isPlaying={roomState?.status !== 'paused'}
         onReady={handlePlayerReady}
         onTogglePlay={handleTogglePlay}
+        onSeek={sendSeek}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
       />
 

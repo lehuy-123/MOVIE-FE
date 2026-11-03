@@ -71,6 +71,7 @@ export function useSocketSync({
 
   // Flag to avoid feedback loops from local user actions
   const isPerformingLocalAction = useRef(false);
+  const currentVideoIdRef = useRef<string | null>(null);
 
   // Stable references for callbacks to avoid re-connecting WebSocket on every render
   const onVideoChangeRef = useRef(onVideoChange);
@@ -105,28 +106,27 @@ export function useSocketSync({
 
       // Compensate for elapsed time since the server timestamp update
       const elapsedSeconds = status === 'playing' ? Math.max(0, (now - updatedAt) / 1000) : 0;
-      const expectedTime = timestamp + elapsedSeconds;
+      const expectedTime = Math.max(0, timestamp + elapsedSeconds);
 
       const currentTime = player.getCurrentTime();
       const isSender = Boolean(senderId && socketRef.current && senderId === socketRef.current.id);
       if (isSender) return;
 
-      // Only seek if video is already playing or buffered, and drift is significant (> 3.5s)
-      if (currentTime > 0) {
+      if (status === 'paused') {
+        if (Math.abs(currentTime - timestamp) > 0.5) {
+          player.seekTo(timestamp);
+        }
+        player.pause();
+      } else {
         const drift = Math.abs(currentTime - expectedTime);
-        if (drift > 3.5) {
+        // Only seek if currentTime is 0 (newly loading) or drift is noticeable (> 1.2s)
+        if (currentTime === 0 || drift > 1.2) {
           console.log(
             `[useSocketSync] Aligning drift (${drift.toFixed(2)}s). Seeking to ${expectedTime.toFixed(2)}s`
           );
           player.seekTo(expectedTime);
         }
-      }
-
-      // Synchronize play/pause status
-      if (status === 'playing') {
         player.play();
-      } else {
-        player.pause();
       }
     },
     [screenRef]
@@ -214,16 +214,22 @@ export function useSocketSync({
       }
       onRoomStateChangeRef.current?.(state);
 
-      // Sync video ID and title and immediately load it on the screen!
-      if (state.videoId) {
+      // Only load new video if video ID changed!
+      if (state.videoId && state.videoId !== currentVideoIdRef.current) {
+        currentVideoIdRef.current = state.videoId;
         onVideoChangeRef.current?.(state.videoId, state.videoTitle);
         screenRef.current?.loadVideoById(state.videoId, state.timestamp);
+      } else if (state.videoId) {
+        currentVideoIdRef.current = state.videoId;
       }
 
       // Apply initial time sync with drift compensation
       setTimeout(() => {
         applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
       }, 500);
+      setTimeout(() => {
+        applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
+      }, 1500);
     });
 
     // 2.1 Receive rooms list summary
@@ -234,23 +240,50 @@ export function useSocketSync({
     // 3. Listen for sync-play event
     socket.on('sync-play', (payload: VideoSyncPayload) => {
       setRoomState((prev) => (prev ? { ...prev, status: 'playing', timestamp: payload.timestamp, updatedAt: payload.updatedAt } : null));
-      applyVideoSyncRef.current?.(payload.timestamp, payload.updatedAt, 'playing', payload.senderId);
+      const isSender = Boolean(payload.senderId && socketRef.current && payload.senderId === socketRef.current.id);
+      if (isSender) return;
+
+      const now = Date.now();
+      const elapsed = Math.max(0, (now - payload.updatedAt) / 1000);
+      const targetTime = Math.max(0, payload.timestamp + elapsed);
+      const cur = screenRef.current?.getCurrentTime() ?? 0;
+      if (cur === 0 || Math.abs(cur - targetTime) > 1.2) {
+        screenRef.current?.seekTo(targetTime);
+      }
+      screenRef.current?.play();
     });
 
     // 4. Listen for sync-pause event
     socket.on('sync-pause', (payload: VideoSyncPayload) => {
       setRoomState((prev) => (prev ? { ...prev, status: 'paused', timestamp: payload.timestamp, updatedAt: payload.updatedAt } : null));
-      applyVideoSyncRef.current?.(payload.timestamp, payload.updatedAt, 'paused', payload.senderId);
+      const isSender = Boolean(payload.senderId && socketRef.current && payload.senderId === socketRef.current.id);
+      if (isSender) return;
+
+      screenRef.current?.seekTo(payload.timestamp);
+      screenRef.current?.pause();
     });
 
     // 5. Listen for sync-seek event
     socket.on('sync-seek', (payload: VideoSyncPayload) => {
-      setRoomState((prev) => (prev ? { ...prev, timestamp: payload.timestamp, updatedAt: payload.updatedAt } : null));
-      applyVideoSyncRef.current?.(payload.timestamp, payload.updatedAt, payload.status, payload.senderId);
+      setRoomState((prev) => (prev ? { ...prev, timestamp: payload.timestamp, updatedAt: payload.updatedAt, status: payload.status } : null));
+      const isSender = Boolean(payload.senderId && socketRef.current && payload.senderId === socketRef.current.id);
+      if (isSender) return;
+
+      const now = Date.now();
+      const elapsedSeconds = payload.status === 'playing' ? Math.max(0, (now - payload.updatedAt) / 1000) : 0;
+      const targetTime = Math.max(0, payload.timestamp + elapsedSeconds);
+      console.log(`[useSocketSync] sync-seek from ${payload.senderId}: seeking to ${targetTime.toFixed(2)}s`);
+      screenRef.current?.seekTo(targetTime);
+      if (payload.status === 'playing') {
+        screenRef.current?.play();
+      } else {
+        screenRef.current?.pause();
+      }
     });
 
     // 6. Listen for sync-video event (video source changed)
     socket.on('sync-video', (payload) => {
+      currentVideoIdRef.current = payload.videoId;
       onVideoChangeRef.current?.(payload.videoId, payload.videoTitle);
       screenRef.current?.loadVideoById(payload.videoId, 0);
     });
@@ -320,7 +353,7 @@ export function useSocketSync({
     }
   }, [nickname, avatarColor, gender, isConnected]);
 
-  // Periodic drift check (every 10 seconds) to prevent subtle micro-drift while playing
+  // Periodic drift check (every 5 seconds) to prevent subtle micro-drift while playing
   useEffect(() => {
     const driftCheckInterval = setInterval(() => {
       if (!isConnected || !roomState || roomState.status !== 'playing' || !screenRef.current) {
@@ -332,15 +365,16 @@ export function useSocketSync({
       const expectedTime = roomState.timestamp + elapsed;
       const actualTime = screenRef.current.getCurrentTime();
 
-      // Only check drift if the video is actually playing and reporting time > 0, and drift is significant (> 3.5s)
       if (actualTime > 0) {
         const drift = Math.abs(actualTime - expectedTime);
-        if (drift > 3.5) {
-          console.log(`[useSocketSync] Periodic drift correction: ${drift.toFixed(2)}s drift`);
+        if (drift > 1.2) {
+          console.log(
+            `[useSocketSync] Periodic drift correction: ${drift.toFixed(2)}s drift. Seeking to ${expectedTime.toFixed(2)}s`
+          );
           screenRef.current.seekTo(expectedTime);
         }
       }
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(driftCheckInterval);
   }, [isConnected, roomState, screenRef]);
@@ -363,7 +397,7 @@ export function useSocketSync({
       }
       setTimeout(() => {
         isPerformingLocalAction.current = false;
-      }, 800);
+      }, 1000);
     },
     [screenRef]
   );
@@ -382,7 +416,7 @@ export function useSocketSync({
       }
       setTimeout(() => {
         isPerformingLocalAction.current = false;
-      }, 800);
+      }, 1000);
     },
     [screenRef]
   );
@@ -401,7 +435,7 @@ export function useSocketSync({
       }
       setTimeout(() => {
         isPerformingLocalAction.current = false;
-      }, 800);
+      }, 1200);
     },
     [screenRef]
   );

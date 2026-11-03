@@ -33,13 +33,14 @@ export interface CinemaScreenOverlayProps {
   onReady?: (controls: YouTubePlayerControls) => void;
   onStateChange?: (state: number) => void;
   onTogglePlay?: () => void;
+  onSeek?: (timestamp: number) => void;
   onOpenAddVideo?: () => void;
 }
 
 export const CinemaScreenOverlay = forwardRef<
   CinemaScreenOverlayHandle,
   CinemaScreenOverlayProps
->(({ videoId, isPlaying = true, onReady, onStateChange, onTogglePlay, onOpenAddVideo }, ref) => {
+>(({ videoId, isPlaying = true, onReady, onStateChange, onTogglePlay, onSeek, onOpenAddVideo }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export const CinemaScreenOverlay = forwardRef<
   const [errorCode, setErrorCode] = useState<number | null>(null);
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
+  const isProgrammaticSeekRef = useRef(false);
 
   // Helper to build YouTube Embed URL with JS API, origin and playsinline
   const buildEmbedUrl = useCallback((id: string, start = 0) => {
@@ -74,12 +76,27 @@ export const CinemaScreenOverlay = forwardRef<
     }
   }, []);
 
+  // Tell YouTube iframe that window is listening for events
+  const sendListening = useCallback(() => {
+    try {
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: 'listening' }),
+          '*'
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Update video when prop changes
   useEffect(() => {
     if (videoId && videoId !== currentId) {
       setCurrentId(videoId);
       setHasStarted(false);
       setErrorCode(null);
+      currentTimeRef.current = 0;
       postCommand('loadVideoById', [{ videoId, startSeconds: 0 }]);
       postCommand('playVideo');
       if (iframeRef.current) {
@@ -96,26 +113,64 @@ export const CinemaScreenOverlay = forwardRef<
     setLocalPlaying(isPlaying);
   }, [isPlaying]);
 
+  // Periodic handshake / sync query to ensure YouTube iframe delivers currentTime & duration
+  useEffect(() => {
+    const timer = setInterval(() => {
+      sendListening();
+      if (iframeRef.current) {
+        postCommand('getCurrentTime');
+        if (durationRef.current <= 0) {
+          postCommand('getDuration');
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [sendListening, postCommand]);
+
   // Listen to YouTube player state events sent via postMessage
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-        if (!data) return;
+        let data = e.data;
+        if (typeof data === 'string') {
+          try {
+            data = JSON.parse(data);
+          } catch {
+            return;
+          }
+        }
+        if (!data || typeof data !== 'object') return;
 
         if (data.event === 'onReady') {
+          sendListening();
           postCommand('playVideo');
+          postCommand('getCurrentTime');
           setHasStarted(true);
           setErrorCode(null);
         } else if (data.event === 'onError') {
           console.warn('[CinemaScreenOverlay] YouTube player error:', data.info);
           setErrorCode(Number(data.info) || 150);
-        } else if (data.event === 'infoDelivery' && data.info) {
-          if (typeof data.info.currentTime === 'number') {
-            currentTimeRef.current = data.info.currentTime;
-          }
-          if (typeof data.info.duration === 'number') {
+        } else if ((data.event === 'infoDelivery' || data.event === 'initialDelivery') && data.info) {
+          if (typeof data.info.duration === 'number' && data.info.duration > 0) {
             durationRef.current = data.info.duration;
+          }
+          if (typeof data.info.currentTime === 'number') {
+            const newTime = data.info.currentTime;
+            const prevTime = currentTimeRef.current;
+            currentTimeRef.current = newTime;
+
+            // Detect user seeking using YouTube player native scrubber
+            if (
+              !isProgrammaticSeekRef.current &&
+              durationRef.current > 0 &&
+              prevTime > 0 &&
+              Math.abs(newTime - prevTime) > 2.0
+            ) {
+              console.log(
+                `[CinemaScreenOverlay] Detected internal seek: ${prevTime.toFixed(1)}s -> ${newTime.toFixed(1)}s`
+              );
+              onSeek?.(newTime);
+            }
           }
           if (typeof data.info.playerState === 'number') {
             const playing = data.info.playerState === 1;
@@ -140,21 +195,28 @@ export const CinemaScreenOverlay = forwardRef<
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onStateChange, postCommand]);
+  }, [onStateChange, postCommand, sendListening, onSeek]);
 
   const handleIframeLoad = useCallback(() => {
-    postCommand('listening');
+    sendListening();
     postCommand('playVideo');
+    postCommand('getCurrentTime');
 
     if (onReady) {
       const controls: YouTubePlayerControls = {
         loadVideoById: (id: string, startSeconds = 0) => {
           if (id === currentId) {
+            currentTimeRef.current = startSeconds;
+            isProgrammaticSeekRef.current = true;
             postCommand('seekTo', [startSeconds, true]);
             postCommand('playVideo');
+            setTimeout(() => {
+              isProgrammaticSeekRef.current = false;
+            }, 1200);
           } else {
             setCurrentId(id);
             setHasStarted(false);
+            currentTimeRef.current = startSeconds;
             if (iframeRef.current) {
               iframeRef.current.src = buildEmbedUrl(id, startSeconds);
             }
@@ -168,7 +230,14 @@ export const CinemaScreenOverlay = forwardRef<
           setLocalPlaying(false);
           postCommand('pauseVideo');
         },
-        seekTo: (sec: number) => postCommand('seekTo', [sec, true]),
+        seekTo: (sec: number) => {
+          currentTimeRef.current = sec;
+          isProgrammaticSeekRef.current = true;
+          postCommand('seekTo', [sec, true]);
+          setTimeout(() => {
+            isProgrammaticSeekRef.current = false;
+          }, 1200);
+        },
         getCurrentTime: () => currentTimeRef.current,
         getDuration: () => durationRef.current,
         setVolume: (vol: number) => postCommand('setVolume', [vol]),
@@ -181,7 +250,7 @@ export const CinemaScreenOverlay = forwardRef<
 
       onReady(controls);
     }
-  }, [currentId, onReady, postCommand, buildEmbedUrl]);
+  }, [currentId, onReady, postCommand, sendListening, buildEmbedUrl]);
 
   // Expose imperative handle for external control
   useImperativeHandle(
@@ -189,8 +258,25 @@ export const CinemaScreenOverlay = forwardRef<
     () => ({
       loadVideoById: (id: string, startSeconds = 0) => {
         if (!id) return;
+        const isSameVideo = id === currentId;
+        if (isSameVideo) {
+          // If video is already loaded, only seek and play without reloading the iframe
+          if (startSeconds > 0) {
+            currentTimeRef.current = startSeconds;
+            isProgrammaticSeekRef.current = true;
+            postCommand('seekTo', [startSeconds, true]);
+            setTimeout(() => {
+              isProgrammaticSeekRef.current = false;
+            }, 1200);
+          }
+          postCommand('playVideo');
+          return;
+        }
+
         setCurrentId(id);
         setHasStarted(false);
+        currentTimeRef.current = startSeconds;
+        isProgrammaticSeekRef.current = true;
         postCommand('loadVideoById', [{ videoId: id, startSeconds: Math.floor(startSeconds) }]);
         postCommand('playVideo');
         if (iframeRef.current) {
@@ -199,6 +285,9 @@ export const CinemaScreenOverlay = forwardRef<
             iframeRef.current.src = targetUrl;
           }
         }
+        setTimeout(() => {
+          isProgrammaticSeekRef.current = false;
+        }, 1200);
       },
       play: () => {
         setHasStarted(true);
@@ -209,7 +298,14 @@ export const CinemaScreenOverlay = forwardRef<
         setLocalPlaying(false);
         postCommand('pauseVideo');
       },
-      seekTo: (sec: number) => postCommand('seekTo', [sec, true]),
+      seekTo: (sec: number) => {
+        currentTimeRef.current = sec;
+        isProgrammaticSeekRef.current = true;
+        postCommand('seekTo', [sec, true]);
+        setTimeout(() => {
+          isProgrammaticSeekRef.current = false;
+        }, 1200);
+      },
       getCurrentTime: () => currentTimeRef.current,
       getDuration: () => durationRef.current,
       setVolume: (vol: number) => postCommand('setVolume', [vol]),
@@ -225,18 +321,31 @@ export const CinemaScreenOverlay = forwardRef<
           setLocalPlaying(false);
           postCommand('pauseVideo');
         },
-        seekTo: (sec: number) => postCommand('seekTo', [sec, true]),
+        seekTo: (sec: number) => {
+          currentTimeRef.current = sec;
+          isProgrammaticSeekRef.current = true;
+          postCommand('seekTo', [sec, true]);
+          setTimeout(() => {
+            isProgrammaticSeekRef.current = false;
+          }, 1200);
+        },
         getCurrentTime: () => currentTimeRef.current,
         getDuration: () => durationRef.current,
         setVolume: (vol: number) => postCommand('setVolume', [vol]),
         loadVideoById: (id: string | { videoId: string }) => {
           const vid = typeof id === 'string' ? id : id.videoId;
           if (vid === currentId) {
+            currentTimeRef.current = 0;
+            isProgrammaticSeekRef.current = true;
             postCommand('seekTo', [0, true]);
             postCommand('playVideo');
+            setTimeout(() => {
+              isProgrammaticSeekRef.current = false;
+            }, 1200);
           } else {
             setCurrentId(vid);
             setHasStarted(false);
+            currentTimeRef.current = 0;
             if (iframeRef.current) {
               iframeRef.current.src = buildEmbedUrl(vid, 0);
             }
