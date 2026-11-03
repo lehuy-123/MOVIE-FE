@@ -10,6 +10,10 @@ export interface RoomUser {
   joinedAt: number;
   isAdmin?: boolean;
   canControl?: boolean;
+  isChatMuted?: boolean;
+  isMicMuted?: boolean;
+  isMicOn?: boolean;
+  isSpeaking?: boolean;
 }
 
 export interface VideoRequestItem {
@@ -88,6 +92,12 @@ export interface ClientToServerEvents {
   'user-vote-skip': () => void;
   'user-update-profile': (payload: { nickname: string; avatarColor?: string; gender?: 'Nam' | 'Nữ' }) => void;
   'admin-toggle-control': (payload: { targetSocketId: string; canControl: boolean }) => void;
+  'admin-toggle-chat-mute': (payload: { targetSocketId: string; isMuted?: boolean }) => void;
+  'admin-toggle-mic-mute': (payload: { targetSocketId: string; isMuted?: boolean }) => void;
+  'user-mic-status': (payload: { isMicOn: boolean; isSpeaking: boolean }) => void;
+  'webrtc-offer': (payload: { to: string; offer: RTCSessionDescriptionInit }) => void;
+  'webrtc-answer': (payload: { to: string; answer: RTCSessionDescriptionInit }) => void;
+  'webrtc-ice-candidate': (payload: { to: string; candidate: RTCIceCandidateInit }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -104,4 +114,9 @@ export interface ServerToClientEvents {
   'users-updated': (users: RoomUser[]) => void;
   'chat-message': (message: ChatMessage) => void;
   'skip-votes-updated': (votes: { count: number; total: number; voters: string[] }) => void;
+  'admin-muted-chat': (payload: { isMuted: boolean }) => void;
+  'admin-muted-mic': (payload: { isMuted: boolean }) => void;
+  'webrtc-offer': (payload: { from: string; offer: RTCSessionDescriptionInit }) => void;
+  'webrtc-answer': (payload: { from: string; answer: RTCSessionDescriptionInit }) => void;
+  'webrtc-ice-candidate': (payload: { from: string; candidate: RTCIceCandidateInit }) => void;
 }

@@ -77,16 +77,6 @@ export function WeTubeBottomBar({
             <Users className="h-4 w-4" />
           </button>
         </div>
-
-        {/* Nút "Phòng riêng" */}
-        <button
-          onClick={onTogglePrivateRoom}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-black/60 border border-lime-400/30 text-lime-400 hover:bg-lime-400/20 backdrop-blur-xl text-xs font-semibold transition"
-          title="Tạo hoặc tham gia phòng chiếu riêng"
-        >
-          <DoorOpen className="h-4 w-4" />
-          <span className="hidden sm:inline">Phòng riêng</span>
-        </button>
       </div>
 
       {/* 2. Center: Chat Input Pill */}

@@ -23,7 +23,6 @@ export const ROW_Y_POSITIONS = [0.2, 0.45, 0.7, 0.95, 1.2, 1.45, 1.7, 1.95, 2.2,
 export type SeatKind = NonNullable<SeatData['type']>;
 
 export function getSeatKind(id: string): SeatKind {
-  if (id === 'D05' || id === 'D06') return 'vip';
   const colIndex = parseInt(id.slice(1), 10) - 1;
   if (colIndex === 1 || colIndex === 2) return 'double';
   if (colIndex >= 3 && colIndex <= 8) return 'triple';
@@ -34,7 +33,7 @@ export const SEAT_KIND_LABEL: Record<SeatKind, string> = {
   single: 'Ghế đơn',
   double: 'Ghế đôi',
   triple: 'Ghế ba',
-  vip: 'Ghế VIP',
+  vip: 'Ghế tiêu chuẩn',
 };
 
 /** Dựng SeatData đầy đủ (vị trí 3D thật) từ mã ghế như "B06". */

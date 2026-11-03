@@ -55,6 +55,7 @@ export function useSocketSync({
 }: UseSocketSyncOptions) {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
+  const [socketInstance, setSocketInstance] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
@@ -72,7 +73,7 @@ export function useSocketSync({
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) return parsed.slice(-50);
         }
-      } catch {}
+      } catch { }
     }
     return [];
   });
@@ -80,13 +81,15 @@ export function useSocketSync({
   // Current user is Admin ONLY if room host matches socketId or users array marks them admin
   const isHost = Boolean(
     socketId &&
-      (roomState?.hostId === socketId ||
-        users.find((u) => u.socketId === socketId)?.isAdmin)
+    (roomState?.hostId === socketId ||
+      users.find((u) => u.socketId === socketId)?.isAdmin)
   );
 
   // Current user is permitted to control video if Admin OR granted by Admin
   const currentUser = users.find((u) => u.socketId === socketId);
   const canControl = Boolean(isHost || currentUser?.isAdmin || currentUser?.canControl);
+  const isChatMuted = Boolean(currentUser?.isChatMuted);
+  const isMicMuted = Boolean(currentUser?.isMicMuted);
 
   // Flag to avoid feedback loops from local user actions
   const isPerformingLocalAction = useRef(false);
@@ -169,6 +172,7 @@ export function useSocketSync({
     });
 
     socketRef.current = socket;
+    setSocketInstance(socket);
 
     socket.on('connect', () => {
       console.log(`[useSocketSync] Connected to sync server: ${socket.id}`);
@@ -189,7 +193,7 @@ export function useSocketSync({
           if (!activeGender && parsed.gender) activeGender = parsed.gender;
           if (parsed.seatId) activeSeatId = parsed.seatId;
         }
-      } catch {}
+      } catch { }
 
       if (!activeNick && typeof window !== 'undefined') {
         activeNick = localStorage.getItem('cinema_nickname') || undefined;
@@ -198,7 +202,7 @@ export function useSocketSync({
       let savedAdminToken: string | undefined;
       try {
         savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
-      } catch {}
+      } catch { }
 
       const clientSessionId = getClientSessionId();
 
@@ -233,7 +237,7 @@ export function useSocketSync({
           const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt).slice(-60);
           try {
             localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(merged));
-          } catch {}
+          } catch { }
           return merged;
         });
       }
@@ -359,7 +363,7 @@ export function useSocketSync({
         const next = [...prev.slice(-59), msg];
         try {
           localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
 
@@ -389,6 +393,7 @@ export function useSocketSync({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       socket.disconnect();
       socketRef.current = null;
+      setSocketInstance(null);
     };
   }, [serverUrl, roomId]);
 
@@ -508,6 +513,16 @@ export function useSocketSync({
     socketRef.current.emit('admin-toggle-control', { targetSocketId, canControl: allowed });
   }, []);
 
+  const adminToggleChatMute = useCallback((targetSocketId: string, isMuted?: boolean) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('admin-toggle-chat-mute', { targetSocketId, isMuted });
+  }, []);
+
+  const adminToggleMicMute = useCallback((targetSocketId: string, isMuted?: boolean) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('admin-toggle-mic-mute', { targetSocketId, isMuted });
+  }, []);
+
   const sendChangeVideo = useCallback((videoId: string, videoTitle?: string) => {
     if (!socketRef.current) return;
     socketRef.current.emit('user-change-video', { videoId, videoTitle });
@@ -536,7 +551,7 @@ export function useSocketSync({
           if (res?.ok && res.token) {
             try {
               localStorage.setItem(ADMIN_TOKEN_KEY, res.token);
-            } catch {}
+            } catch { }
           }
           resolve(res || { ok: false });
         });
@@ -550,7 +565,7 @@ export function useSocketSync({
     try {
       token = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
       localStorage.removeItem(ADMIN_TOKEN_KEY);
-    } catch {}
+    } catch { }
     if (socketRef.current) {
       socketRef.current.emit('admin-logout', { adminToken: token });
     }
@@ -571,7 +586,7 @@ export function useSocketSync({
     let savedAdminToken: string | undefined;
     try {
       savedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || undefined;
-    } catch {}
+    } catch { }
     socketRef.current.emit('switch-room', {
       newRoomId,
       nickname: activeNick,
@@ -620,6 +635,11 @@ export function useSocketSync({
     const trimmed = message.trim();
     if (!trimmed) return;
 
+    if (isChatMuted) {
+      alert('Bạn đã bị Quản trị viên cấm chat trong phòng này!');
+      return;
+    }
+
     if (socketRef.current && isConnected) {
       socketRef.current.emit('user-chat', { message: trimmed });
     } else {
@@ -639,7 +659,7 @@ export function useSocketSync({
         setActiveBubbles((prev) => prev.filter((b) => b.id !== localMsg.id));
       }, 5000);
     }
-  }, [isConnected]);
+  }, [isConnected, isChatMuted]);
 
   /** Helper to trigger a 5-second 3D floating bubble over a seat */
   const addBubble = useCallback((bubble: ChatMessage, durationMs = 5000) => {
@@ -650,6 +670,7 @@ export function useSocketSync({
   }, []);
 
   return {
+    socket: socketInstance,
     isConnected,
     socketId,
     roomState,
@@ -658,7 +679,11 @@ export function useSocketSync({
     isHost,
     isAdmin: isHost,
     canControl,
+    isChatMuted,
+    isMicMuted,
     adminToggleControl,
+    adminToggleChatMute,
+    adminToggleMicMute,
     adminLogin,
     adminLogout,
     activeBubbles,

@@ -13,7 +13,9 @@ import { SeatMapModal } from './SeatMapModal';
 import { AddVideoModal } from './AddVideoModal';
 import { RoomListModal } from './RoomListModal';
 import { AdminLoginModal } from './AdminLoginModal';
+import { OccupiedSeatInfo } from './WeTubeSeatGrid';
 import { useSocketSync } from '@/hooks/useSocketSync';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { YouTubePlayerControls } from '@/types/youtube';
 import { RoomUser } from '@/types/socket';
 import { SeatData, UserProfile, DEFAULT_SHIRT_COLOR } from '@/types/cinema';
@@ -100,7 +102,7 @@ export default function CinemaCanvas({
             };
           }
         }
-      } catch {}
+      } catch { }
     }
     return {
       nickname: '',
@@ -122,7 +124,7 @@ export default function CinemaCanvas({
             return buildSeatData(parsed.seatId);
           }
         }
-      } catch {}
+      } catch { }
     }
     return null;
   });
@@ -141,7 +143,7 @@ export default function CinemaCanvas({
             return false;
           }
         }
-      } catch {}
+      } catch { }
     }
     return true;
   });
@@ -163,7 +165,7 @@ export default function CinemaCanvas({
           const parsed = JSON.parse(saved);
           if (typeof parsed?.volume === 'number') return parsed.volume;
         }
-      } catch {}
+      } catch { }
     }
     return 85;
   });
@@ -176,7 +178,7 @@ export default function CinemaCanvas({
           const parsed = JSON.parse(saved);
           if (typeof parsed?.isMuted === 'boolean') return parsed.isMuted;
         }
-      } catch {}
+      } catch { }
     }
     return false;
   });
@@ -206,6 +208,7 @@ export default function CinemaCanvas({
   }, []);
 
   const {
+    socket,
     isConnected,
     socketId,
     roomState,
@@ -214,7 +217,11 @@ export default function CinemaCanvas({
     isHost,
     isAdmin,
     canControl,
+    isChatMuted,
+    isMicMuted,
     adminToggleControl,
+    adminToggleChatMute,
+    adminToggleMicMute,
     adminLogin,
     adminLogout,
     activeBubbles,
@@ -241,6 +248,13 @@ export default function CinemaCanvas({
     avatarColor: userProfile.shirtColor,
     gender: userProfile.gender,
     onVideoChange: handleVideoChange,
+  });
+
+  const { isMicOn, isSpeaking, toggleMic } = useVoiceChat({
+    socket,
+    socketId,
+    activeUsers: users,
+    isMicMutedByAdmin: isMicMuted,
   });
 
   const handleSelectRoom = useCallback(
@@ -296,7 +310,7 @@ export default function CinemaCanvas({
           const next = { ...prev, seatId: null };
           try {
             localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-          } catch {}
+          } catch { }
           return next;
         });
       }
@@ -305,13 +319,18 @@ export default function CinemaCanvas({
 
   // Calculate real-time occupied seats map from connected users
   const occupiedSeats = useMemo(() => {
-    const map: Record<string, { nickname: string; shirtColor: string }> = {};
+    const map: Record<string, OccupiedSeatInfo> = {};
     const mySeatId = selectedSeat?.id;
     activeUsers.forEach((u) => {
       if (u.seatId && u.socketId !== socketId && u.seatId !== mySeatId) {
         map[u.seatId] = {
           nickname: u.nickname,
           shirtColor: u.avatarColor || '#93c5fd',
+          isAdmin: u.isAdmin,
+          isMicOn: u.isMicOn,
+          isSpeaking: u.isSpeaking,
+          isMicMuted: u.isMicMuted,
+          socketId: u.socketId,
         };
       }
     });
@@ -339,6 +358,10 @@ export default function CinemaCanvas({
         isMe: true,
         isAdmin: isHost || meUser?.isAdmin,
         canControl: canControl,
+        isChatMuted: isChatMuted,
+        isMicMuted: isMicMuted,
+        isMicOn: isMicOn,
+        isSpeaking: isSpeaking,
       },
     ];
 
@@ -353,12 +376,16 @@ export default function CinemaCanvas({
           isMe: false,
           isAdmin: u.isAdmin,
           canControl: u.canControl,
+          isChatMuted: u.isChatMuted,
+          isMicMuted: u.isMicMuted,
+          isMicOn: u.isMicOn,
+          isSpeaking: u.isSpeaking,
         });
       }
     });
 
     return list;
-  }, [activeUsers, socketId, userProfile.nickname, userProfile.seatId, userProfile.shirtColor, selectedSeat?.id, isHost, canControl]);
+  }, [activeUsers, socketId, userProfile.nickname, userProfile.seatId, userProfile.shirtColor, selectedSeat?.id, isHost, canControl, isChatMuted, isMicMuted, isMicOn, isSpeaking]);
 
   const seatedCount = useMemo(() => {
     const seatSet = new Set<string>();
@@ -381,7 +408,7 @@ export default function CinemaCanvas({
         } else {
           screenRef.current?.getPlayer()?.unMute();
         }
-      } catch {}
+      } catch { }
     },
     [volume, isMuted]
   );
@@ -396,7 +423,7 @@ export default function CinemaCanvas({
       }
       try {
         localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify({ volume, isMuted: next }));
-      } catch {}
+      } catch { }
       return next;
     });
   }, [volume]);
@@ -407,7 +434,7 @@ export default function CinemaCanvas({
       screenRef.current?.setVolume(val);
       try {
         localStorage.setItem(AUDIO_SETTINGS_KEY, JSON.stringify({ volume: val, isMuted }));
-      } catch {}
+      } catch { }
     },
     [isMuted]
   );
@@ -419,7 +446,7 @@ export default function CinemaCanvas({
         const next = { ...prev, seatId: seat.id };
         try {
           localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
       sendSelectSeat(seat.id, userProfile.nickname, userProfile.shirtColor, userProfile.gender);
@@ -468,7 +495,7 @@ export default function CinemaCanvas({
       const next = { ...prev, seatId: null };
       try {
         localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
     sendLeaveSeat();
@@ -514,7 +541,7 @@ export default function CinemaCanvas({
         const next = { ...profile, seatId: prev.seatId, coins: prev.coins };
         try {
           localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
       sendUpdateProfile(profile.nickname, profile.shirtColor, profile.gender);
@@ -571,6 +598,13 @@ export default function CinemaCanvas({
         isPlaying={roomState?.status !== 'paused'}
         canControl={canControl}
         onToggleUserControl={adminToggleControl}
+        onToggleChatMute={adminToggleChatMute}
+        onToggleMicMute={adminToggleMicMute}
+        isMicOn={isMicOn}
+        isSpeaking={isSpeaking}
+        isMicMuted={isMicMuted}
+        isChatMuted={isChatMuted}
+        onToggleMic={toggleMic}
         onTogglePlay={handleTogglePlay}
         onSeek={sendSeek}
         onlineCount={realOnlineCount}
@@ -598,7 +632,6 @@ export default function CinemaCanvas({
         onOpenSeatMap={openSeatMap}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
         onOpenProfile={openWardrobe}
-        onTogglePrivateRoom={() => setIsRoomListModalOpen(true)}
         isDimmed={isDimmed}
         onToggleDimmed={() => setIsDimmed((d) => !d)}
       />
@@ -638,6 +671,10 @@ export default function CinemaCanvas({
               currentSocketId={socketId}
               currentUserNickname={userProfile.nickname}
               currentUserShirtColor={userProfile.shirtColor}
+              currentUserIsAdmin={isHost}
+              currentUserIsMicOn={isMicOn}
+              currentUserIsSpeaking={isSpeaking}
+              currentUserIsMicMuted={isMicMuted}
               isDimmed={isDimmed}
               isPlaying={roomState?.status !== 'paused'}
               cameraMode={cameraMode}
@@ -705,6 +742,8 @@ export default function CinemaCanvas({
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
         viewers={viewersList}
         onToggleUserControl={adminToggleControl}
+        onToggleChatMute={adminToggleChatMute}
+        onToggleMicMute={adminToggleMicMute}
       />
     </div>
   );

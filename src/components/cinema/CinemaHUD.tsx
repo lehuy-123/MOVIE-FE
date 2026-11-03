@@ -54,6 +54,10 @@ export interface ViewerInfo {
   isMe: boolean;
   isAdmin?: boolean;
   canControl?: boolean;
+  isChatMuted?: boolean;
+  isMicMuted?: boolean;
+  isMicOn?: boolean;
+  isSpeaking?: boolean;
 }
 
 interface CinemaHUDProps {
@@ -67,6 +71,13 @@ interface CinemaHUDProps {
   onTogglePlay?: () => void;
   onSeek?: (seconds: number) => void;
   onToggleUserControl?: (targetSocketId: string, canControl: boolean) => void;
+  onToggleChatMute?: (targetSocketId: string, isMuted?: boolean) => void;
+  onToggleMicMute?: (targetSocketId: string, isMuted?: boolean) => void;
+  isMicOn?: boolean;
+  isSpeaking?: boolean;
+  isMicMuted?: boolean;
+  isChatMuted?: boolean;
+  onToggleMic?: () => void;
   onlineCount: number;
   seatedCount: number;
   totalSeats: number;
@@ -100,7 +111,7 @@ interface CinemaHUDProps {
   onOpenSeatMap: () => void;
   onOpenAddVideo: () => void;
   onOpenProfile: () => void;
-  onTogglePrivateRoom: () => void;
+  onTogglePrivateRoom?: () => void;
   onProjectImage?: () => void;
   onReport?: (reason: string) => void;
 }
@@ -181,6 +192,13 @@ export function CinemaHUD({
   onTogglePlay,
   onSeek,
   onToggleUserControl,
+  onToggleChatMute,
+  onToggleMicMute,
+  isMicOn = false,
+  isSpeaking = false,
+  isMicMuted = false,
+  isChatMuted = false,
+  onToggleMic,
   onlineCount,
   seatedCount,
   totalSeats,
@@ -211,14 +229,12 @@ export function CinemaHUD({
   onOpenProfile,
   onTogglePrivateRoom,
   onProjectImage,
-  onReport,
 }: CinemaHUDProps) {
   const [hidden, setHidden] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dockOpen, setDockOpen] = useState(true);
-  const [dockPanel, setDockPanel] = useState<null | 'chat' | 'react' | 'report'>(null);
+  const [dockPanel, setDockPanel] = useState<null | 'chat' | 'react'>(null);
   const [bottomPanel, setBottomPanel] = useState<null | 'layout' | 'viewers'>(null);
-  const [micOn, setMicOn] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [hearts, setHearts] = useState<{ id: number; dx: number }[]>([]);
 
@@ -343,6 +359,10 @@ export function CinemaHUD({
 
   const submitChat = (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (isChatMuted) {
+      showToast('🚫 Bạn đã bị Quản trị viên cấm chat trong phòng này!');
+      return;
+    }
     const msg = draft.trim();
     if (!msg) return;
     onSendChat(msg);
@@ -360,7 +380,7 @@ export function CinemaHUD({
     onSendReaction('❤️');
   };
 
-  const toggleDock = (panel: 'chat' | 'react' | 'report') => {
+  const toggleDock = (panel: 'chat' | 'react') => {
     setBottomPanel(null);
     setDockPanel((p) => (p === panel ? null : panel));
   };
@@ -516,19 +536,8 @@ export function CinemaHUD({
           </div>
         </div>
 
-        {/* Phải: Ví tiền xu, nút Quản trị Admin, toàn màn hình, âm thanh, ẩn UI, avatar */}
+        {/* Phải: Nút Quản trị Admin, bật tắt đèn, toàn màn hình, âm thanh, ẩn UI, avatar */}
         <div className={`pointer-events-auto flex items-center gap-1.5 rounded-2xl p-1 ${glass}`}>
-          {/* Ô số dư xu (Screenshot 1 & 2) */}
-          <div
-            className="flex items-center gap-1.5 rounded-xl bg-white/[0.08] px-3 py-1.5 text-xs font-bold text-amber-300 border border-white/10 shadow-sm"
-            title="Số dư xu trong rạp"
-          >
-            <span className="text-sm">🪙</span>
-            <span className="font-mono tracking-tight text-white/95">168.000đ</span>
-          </div>
-
-          <span className="h-5 w-px bg-white/10 mx-0.5" />
-
           {/* Nút Admin riêng biệt */}
           <button
             id="hud-admin-button"
@@ -662,16 +671,18 @@ export function CinemaHUD({
                 onClick={onOpenProfile}
               />
               <DockButton
-                icon={<Heart className="h-[18px] w-[18px]" />}
-                label="Ủng hộ"
-                tone="rose"
-                onClick={burstHearts}
-              />
-              <DockButton
-                icon={<Flag className="h-[18px] w-[18px]" />}
-                label="Tố cáo"
-                active={dockPanel === 'report'}
-                onClick={() => toggleDock('report')}
+                icon={
+                  isMicMuted ? (
+                    <MicOff className="h-[18px] w-[18px] text-rose-400" />
+                  ) : isMicOn ? (
+                    <Mic className={`h-[18px] w-[18px] ${isSpeaking ? 'text-emerald-400 animate-pulse' : 'text-emerald-300'}`} />
+                  ) : (
+                    <MicOff className="h-[18px] w-[18px]" />
+                  )
+                }
+                label={isMicMuted ? 'Bị cấm mic' : isMicOn ? (isSpeaking ? 'Đang nói...' : 'Tắt Mic') : 'Bật Mic'}
+                tone={isMicMuted ? 'rose' : isMicOn ? 'lime' : 'default'}
+                onClick={onToggleMic}
               />
             </>
           )}
@@ -722,27 +733,6 @@ export function CinemaHUD({
                 </div>
               </>
             )}
-            {dockPanel === 'report' && (
-              <>
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-widest text-white/50">Tố cáo</div>
-                <div className="flex flex-col gap-1">
-                  {REPORT_REASONS.map((reason) => (
-                    <button
-                      key={reason}
-                      type="button"
-                      onClick={() => {
-                        onReport?.(reason);
-                        setDockPanel(null);
-                        showToast('Đã gửi tố cáo. Cảm ơn bạn!');
-                      }}
-                      className="rounded-xl px-3 py-2 text-left text-xs text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      {reason}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
         )}
       </aside>
@@ -767,28 +757,17 @@ export function CinemaHUD({
 
       {/* ═══════════════ BOTTOM BAR ═══════════════ */}
       <footer className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-3 sm:p-5">
-        {/* Trái: Phòng riêng, layout, danh sách người xem */}
+        {/* Trái: Đổi rạp, layout, danh sách người xem */}
         <div data-hud-popover className="pointer-events-auto relative flex items-center gap-2">
           <button
             id="hud-private-room"
             type="button"
-            onClick={onOpenRoomList || onTogglePrivateRoom}
+            onClick={onOpenRoomList}
             className="flex items-center gap-2 rounded-2xl border border-[#d8f95f]/35 bg-[#d8f95f]/10 px-4 py-2.5 text-xs font-bold text-[#d8f95f] backdrop-blur-xl transition hover:bg-[#d8f95f]/20 active:scale-95"
             title="Xem danh sách rạp và chuyển rạp"
           >
             <DoorOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Đổi rạp ({roomName?.split('·')[0]?.trim() || 'Rạp 01'})</span>
-          </button>
-
-          {/* Nút Phòng riêng (Screenshot 1 & 2) */}
-          <button
-            type="button"
-            onClick={onTogglePrivateRoom}
-            className="hidden sm:flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.07] px-3.5 py-2.5 text-xs font-bold text-white/90 backdrop-blur-xl transition hover:bg-white/15 active:scale-95"
-            title="Chế độ phòng riêng tư"
-          >
-            <Armchair className="h-4 w-4 text-[#d8f95f]" />
-            <span>Phòng riêng</span>
           </button>
 
           <div className={`flex items-center gap-0.5 rounded-2xl p-1 ${glass}`}>
@@ -898,34 +877,94 @@ export function CinemaHUD({
                           <span className="font-mono text-[10px] text-white/35">
                             {v.seatId ? `Ghế ${v.seatId}` : 'Chưa ngồi'}
                           </span>
+                          {v.isSpeaking && (
+                            <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/40 animate-pulse flex items-center gap-0.5">
+                              <Mic className="h-2.5 w-2.5" /> Đang nói
+                            </span>
+                          )}
+                          {v.isMicMuted && (
+                            <span className="text-[9px] font-bold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">
+                              Cấm mic
+                            </span>
+                          )}
+                          {v.isChatMuted && (
+                            <span className="text-[9px] font-bold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded border border-rose-500/30">
+                              Cấm chat
+                            </span>
+                          )}
                         </div>
                       </div>
 
-                      {/* Nút phân quyền cho Admin */}
-                      {isAdmin && !v.isAdmin && !v.isMe && onToggleUserControl && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onToggleUserControl(targetSocketId, !canUserControl);
-                            showToast(
-                              !canUserControl
-                                ? `Đã cấp quyền điều khiển cho ${v.nickname}`
-                                : `Đã thu hồi quyền điều khiển của ${v.nickname}`
-                            );
-                          }}
-                          title={
-                            canUserControl
-                              ? 'Thu hồi quyền điều khiển video'
-                              : 'Cấp quyền điều khiển video (Tua, Dừng, Phát)'
-                          }
-                          className={`shrink-0 rounded-lg px-2.5 py-1 text-[10.5px] font-bold transition active:scale-95 ${
-                            canUserControl
-                              ? 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
-                              : 'border border-[#d8f95f]/40 bg-[#d8f95f]/15 text-[#d8f95f] hover:bg-[#d8f95f]/25'
-                          }`}
-                        >
-                          {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
-                        </button>
+                      {/* Các nút quản lý cho Quản trị viên (Cấp quyền, Cấm Mic, Cấm Chat) */}
+                      {isAdmin && !v.isAdmin && !v.isMe && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Nút Cấm / Bỏ cấm Micro */}
+                          {onToggleMicMute && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onToggleMicMute(targetSocketId, !v.isMicMuted);
+                                showToast(!v.isMicMuted ? `Đã cấm micro của ${v.nickname}` : `Đã mở micro cho ${v.nickname}`);
+                              }}
+                              title={v.isMicMuted ? 'Mở lại micro cho khán giả' : 'Cấm nói micro khán giả này'}
+                              className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 flex items-center gap-1 ${
+                                v.isMicMuted
+                                  ? 'border border-rose-500/50 bg-rose-500/25 text-rose-300 hover:bg-rose-500/35'
+                                  : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              {v.isMicMuted ? <MicOff className="h-3 w-3 text-rose-400" /> : <Mic className="h-3 w-3" />}
+                              <span>{v.isMicMuted ? 'Mở Mic' : 'Cấm Mic'}</span>
+                            </button>
+                          )}
+
+                          {/* Nút Cấm / Bỏ cấm Chat */}
+                          {onToggleChatMute && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onToggleChatMute(targetSocketId, !v.isChatMuted);
+                                showToast(!v.isChatMuted ? `Đã cấm chat của ${v.nickname}` : `Đã mở chat cho ${v.nickname}`);
+                              }}
+                              title={v.isChatMuted ? 'Mở lại chat cho khán giả' : 'Cấm chat khán giả này'}
+                              className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 flex items-center gap-1 ${
+                                v.isChatMuted
+                                  ? 'border border-rose-500/50 bg-rose-500/25 text-rose-300 hover:bg-rose-500/35'
+                                  : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              <span>{v.isChatMuted ? 'Mở Chat' : 'Cấm Chat'}</span>
+                            </button>
+                          )}
+
+                          {/* Nút cấp quyền điều khiển */}
+                          {onToggleUserControl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onToggleUserControl(targetSocketId, !canUserControl);
+                                showToast(
+                                  !canUserControl
+                                    ? `Đã cấp quyền điều khiển cho ${v.nickname}`
+                                    : `Đã thu hồi quyền điều khiển của ${v.nickname}`
+                                );
+                              }}
+                              title={
+                                canUserControl
+                                  ? 'Thu hồi quyền điều khiển video'
+                                  : 'Cấp quyền điều khiển video (Tua, Dừng, Phát)'
+                              }
+                              className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 ${
+                                canUserControl
+                                  ? 'border border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                                  : 'border border-[#d8f95f]/40 bg-[#d8f95f]/15 text-[#d8f95f] hover:bg-[#d8f95f]/25'
+                              }`}
+                            >
+                              {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -937,7 +976,7 @@ export function CinemaHUD({
 
         {/* Giữa: ô chat */}
         <div data-hud-popover className="pointer-events-auto relative mx-auto w-full max-w-[520px] flex-1">
-          {showEmoji && (
+          {showEmoji && !isChatMuted && (
             <div className={`wt-step absolute bottom-full left-0 mb-3 flex flex-wrap gap-1 rounded-2xl p-2 ${glass}`}>
               {EMOJIS.map((emoji) => (
                 <button
@@ -956,13 +995,18 @@ export function CinemaHUD({
           )}
           <form
             onSubmit={submitChat}
-            className="flex items-center gap-2.5 rounded-full border border-white/15 bg-[#0e120e]/80 py-1.5 pl-4 pr-1.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition focus-within:border-[#d8f95f]/60"
+            className={`flex items-center gap-2.5 rounded-full border py-1.5 pl-4 pr-1.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition ${
+              isChatMuted
+                ? 'border-rose-500/40 bg-rose-950/30'
+                : 'border-white/15 bg-[#0e120e]/80 focus-within:border-[#d8f95f]/60'
+            }`}
           >
             <button
               type="button"
+              disabled={isChatMuted}
               onClick={() => setShowEmoji((s) => !s)}
-              title="Biểu cảm"
-              className={`transition hover:text-[#d8f95f] ${showEmoji ? 'text-[#d8f95f]' : 'text-white/55'}`}
+              title={isChatMuted ? 'Bạn đã bị cấm chat' : 'Biểu cảm'}
+              className={`transition ${isChatMuted ? 'text-white/20 cursor-not-allowed' : showEmoji ? 'text-[#d8f95f]' : 'text-white/55 hover:text-[#d8f95f]'}`}
             >
               <Smile className="h-5 w-5" />
             </button>
@@ -972,15 +1016,18 @@ export function CinemaHUD({
               type="text"
               value={draft}
               maxLength={160}
+              disabled={isChatMuted}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Nói gì với cả rạp đi..."
-              className="min-w-0 flex-1 bg-transparent text-[13px] text-white placeholder-white/35 focus:outline-none"
+              placeholder={isChatMuted ? '🔇 Bạn đã bị Quản trị viên cấm chat trong phòng này!' : 'Nói gì với cả rạp đi...'}
+              className={`min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none ${
+                isChatMuted ? 'text-rose-300 placeholder-rose-300/50 cursor-not-allowed' : 'text-white placeholder-white/35'
+              }`}
             />
             <span className="whitespace-nowrap text-[10px] tabular-nums text-white/30">{draft.length}/160</span>
             <button
               type="submit"
-              disabled={!draft.trim()}
-              title="Gửi"
+              disabled={isChatMuted || !draft.trim()}
+              title={isChatMuted ? 'Bạn đã bị cấm chat' : 'Gửi'}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-[#d8f95f] text-black transition enabled:hover:scale-105 enabled:active:scale-95 disabled:bg-white/10 disabled:text-white/35"
             >
               <Send className="h-4 w-4" />
@@ -1037,14 +1084,29 @@ export function CinemaHUD({
 
           <button
             type="button"
-            onClick={() => {
-              setMicOn((m) => !m);
-              showToast(micOn ? 'Đã tắt mic' : 'Đã bật mic · voice chat sắp ra mắt');
-            }}
-            className={`${iconBtn} ${micOn ? '!text-[#d8f95f]' : ''}`}
-            title={micOn ? 'Tắt mic' : 'Bật mic'}
+            onClick={onToggleMic}
+            className={`${iconBtn} ${
+              isMicMuted
+                ? 'border border-rose-500/50 bg-rose-500/20 !text-rose-400'
+                : isMicOn
+                ? `border border-emerald-400/50 bg-emerald-500/20 !text-emerald-300 ${isSpeaking ? 'ring-2 ring-emerald-400/60 animate-pulse' : ''}`
+                : 'text-white/60 hover:text-white'
+            }`}
+            title={
+              isMicMuted
+                ? '🚫 Bạn đang bị Quản trị viên cấm micro'
+                : isMicOn
+                ? (isSpeaking ? '🎙️ Đang nói... (Bấm để tắt)' : '🎙️ Micro đang BẬT (Bấm để tắt)')
+                : '🎙️ Bật micro nói chuyện cùng cả phòng'
+            }
           >
-            {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            {isMicMuted ? (
+              <MicOff className="h-4 w-4 text-rose-400" />
+            ) : isMicOn ? (
+              <Mic className={`h-4 w-4 ${isSpeaking ? 'text-emerald-300' : 'text-emerald-400'}`} />
+            ) : (
+              <MicOff className="h-4 w-4" />
+            )}
           </button>
           <button type="button" onClick={onToggleMute} className={iconBtn} title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}>
             {isMuted || volume === 0 ? (

@@ -150,18 +150,6 @@ export function WeTubeSidebar({
             Tủ đồ
           </span>
         </button>
-
-        {/* 8. Ủng hộ */}
-        <button
-          onClick={() => alert('Cảm ơn bạn đã đồng hành cùng wetube ciné!')}
-          className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-rose-500/20 hover:text-rose-300 transition w-14 group"
-          title="Ủng hộ rạp phim"
-        >
-          <Heart className="h-4 w-4 text-rose-400 mb-0.5" />
-          <span className="text-[9px] font-semibold text-slate-400 group-hover:text-rose-300">
-            Ủng hộ
-          </span>
-        </button>
       </div>
     </aside>
   );

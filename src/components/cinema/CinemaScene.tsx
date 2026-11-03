@@ -3,7 +3,7 @@
 import React, { useRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { ScreenMesh } from './ScreenMesh';
-import { WeTubeSeatGrid } from './WeTubeSeatGrid';
+import { WeTubeSeatGrid, OccupiedSeatInfo } from './WeTubeSeatGrid';
 import { WeTubeStage } from './WeTubeStage';
 import { CinemaRoom } from './CinemaRoom';
 import { AudienceCeilingDownlights } from './AudienceCeilingDownlights';
@@ -16,12 +16,16 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 interface CinemaSceneProps {
   videoId?: string;
   selectedSeat?: SeatData | null;
-  occupiedSeats?: Record<string, { nickname: string; shirtColor: string }>;
+  occupiedSeats?: Record<string, OccupiedSeatInfo>;
   users?: RoomUser[];
   activeBubbles?: ChatMessage[];
   currentSocketId?: string | null;
   currentUserNickname?: string;
   currentUserShirtColor?: string;
+  currentUserIsAdmin?: boolean;
+  currentUserIsMicOn?: boolean;
+  currentUserIsSpeaking?: boolean;
+  currentUserIsMicMuted?: boolean;
   isDimmed?: boolean;
   isPlaying?: boolean;
   cameraMode?: CameraMode;
@@ -42,6 +46,10 @@ export function CinemaScene({
   currentSocketId,
   currentUserNickname = 'Bạn',
   currentUserShirtColor = DEFAULT_SHIRT_COLOR,
+  currentUserIsAdmin = false,
+  currentUserIsMicOn = false,
+  currentUserIsSpeaking = false,
+  currentUserIsMicMuted = false,
   isDimmed = true,
   isPlaying = true,
   cameraMode = 'overview',
@@ -127,6 +135,10 @@ export function CinemaScene({
         occupiedSeats={occupiedSeats}
         currentUserNickname={currentUserNickname}
         currentUserShirtColor={currentUserShirtColor}
+        currentUserIsAdmin={currentUserIsAdmin}
+        currentUserIsMicOn={currentUserIsMicOn}
+        currentUserIsSpeaking={currentUserIsSpeaking}
+        currentUserIsMicMuted={currentUserIsMicMuted}
         activeBubbles={activeBubbles}
         currentSocketId={currentSocketId}
         onSelectSeat={onSelectSeat}

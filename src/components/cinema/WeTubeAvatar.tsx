@@ -15,6 +15,10 @@ interface WeTubeAvatarProps {
   isCurrentUser?: boolean;
   seatId?: string | null;
   activeBubble?: ChatMessage;
+  isAdmin?: boolean;
+  isMicOn?: boolean;
+  isSpeaking?: boolean;
+  isMicMuted?: boolean;
 }
 
 /* ──────────────── Shared geometry / material caches ──────────────── */
@@ -38,6 +42,113 @@ function mat(color?: string | null, roughness = 0.75): THREE.MeshStandardMateria
 }
 
 const nameTextureCache = new Map<string, THREE.CanvasTexture>();
+const headTagTextureCache = new Map<string, THREE.CanvasTexture>();
+
+function getHeadNametagTexture(opts: {
+  nickname?: string;
+  isCurrentUser?: boolean;
+  isAdmin?: boolean;
+  isMicOn?: boolean;
+  isSpeaking?: boolean;
+  isMicMuted?: boolean;
+}): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const safeName = opts.nickname && opts.nickname.trim().length > 0 ? opts.nickname.trim() : 'Khán giả';
+  const key = `${safeName}|${opts.isCurrentUser ? 1 : 0}|${opts.isAdmin ? 1 : 0}|${opts.isMicOn ? 1 : 0}|${opts.isSpeaking ? 1 : 0}|${opts.isMicMuted ? 1 : 0}`;
+
+  let tex = headTagTextureCache.get(key);
+  if (!tex) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      ctx.clearRect(0, 0, 512, 128);
+
+      const x = 16, y = 20, w = 480, h = 88, r = 44;
+
+      // Nền bóng mờ (Drop Shadow)
+      ctx.shadowColor = opts.isCurrentUser ? 'rgba(251, 191, 36, 0.55)' : 'rgba(0, 0, 0, 0.75)';
+      ctx.shadowBlur = opts.isCurrentUser ? 24 : 16;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 6;
+
+      // Đường bo góc pill
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+
+      // Nền pill
+      if (opts.isCurrentUser) {
+        ctx.fillStyle = '#fbbf24'; // Màu vàng nổi bật cho chính mình
+      } else if (opts.isAdmin) {
+        ctx.fillStyle = '#1e293b';
+      } else {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)'; // Slate 900 đậm đà
+      }
+      ctx.fill();
+
+      // Viền pill
+      ctx.shadowColor = 'transparent';
+      ctx.lineWidth = opts.isCurrentUser || opts.isAdmin ? 6 : 4;
+      if (opts.isCurrentUser) {
+        ctx.strokeStyle = '#fef08a';
+      } else if (opts.isAdmin) {
+        ctx.strokeStyle = '#f59e0b';
+      } else {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      }
+      ctx.stroke();
+
+      // Nội dung text & icon
+      let prefix = '';
+      if (opts.isAdmin) prefix += '👑 ';
+      if (opts.isMicMuted) prefix += '🔇 ';
+      else if (opts.isSpeaking) prefix += '🎙️🟢 ';
+      else if (opts.isMicOn) prefix += '🎙️ ';
+
+      const label = opts.isCurrentUser ? `${prefix}${safeName} (Bạn)` : `${prefix}${safeName}`;
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (opts.isCurrentUser) {
+        ctx.fillStyle = '#0f172a'; // Chữ đen đậm trên nền vàng
+      } else if (opts.isAdmin) {
+        ctx.fillStyle = '#fbbf24'; // Chữ vàng hoàng gia cho Host
+      } else {
+        ctx.fillStyle = '#ffffff'; // Chữ trắng sắc nét
+      }
+
+      let fontSize = 38;
+      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+      while (ctx.measureText(label).width > 440 && fontSize > 20) {
+        fontSize -= 2;
+        ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+      }
+
+      ctx.fillText(label, 256, 64);
+
+      tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.anisotropy = 4;
+      headTagTextureCache.set(key, tex);
+    } catch {
+      return null;
+    }
+  }
+  return tex;
+}
 
 /**
  * Tạo nhãn vải tên người dùng in trên lưng áo (Cloth Nametag Patch)
@@ -130,6 +241,10 @@ export function WeTubeAvatar({
   isCurrentUser = false,
   seatId,
   activeBubble,
+  isAdmin = false,
+  isMicOn = false,
+  isSpeaking = false,
+  isMicMuted = false,
 }: WeTubeAvatarProps) {
   const look = useMemo(() => {
     const h = hashString(nickname || 'x');
@@ -145,6 +260,19 @@ export function WeTubeAvatar({
   }, [nickname, shirtColor]);
 
   const nameTexture = useMemo(() => getNameTexture(nickname || '?'), [nickname]);
+
+  const headNametagTexture = useMemo(
+    () =>
+      getHeadNametagTexture({
+        nickname,
+        isCurrentUser,
+        isAdmin,
+        isMicOn,
+        isSpeaking,
+        isMicMuted,
+      }),
+    [nickname, isCurrentUser, isAdmin, isMicOn, isSpeaking, isMicMuted]
+  );
 
   const bodyRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
@@ -235,33 +363,23 @@ export function WeTubeAvatar({
         )}
       </group>
 
-      {/* ── Nhãn tên hiển thị rõ ràng trên đầu người dùng (Thay thế vòng tròn) ── */}
-      <SafeHtml
-        position={[0, isDancing ? 1.95 : 1.56, 0.03]}
-        center
-        distanceFactor={18}
-        style={{ pointerEvents: 'none', userSelect: 'none' }}
-      >
-        <div className="flex items-center select-none pointer-events-none">
-          <div
-            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap shadow-[0_4px_16px_rgba(0,0,0,0.6)] backdrop-blur-md border flex items-center gap-1.5 transition-all ${
-              isCurrentUser
-                ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-amber-400/20'
-                : 'bg-slate-900/85 text-white border-white/20'
-            }`}
-          >
-            {isCurrentUser && (
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-950 inline-block animate-pulse" />
-            )}
-            <span>{nickname || 'Khách'}</span>
-          </div>
-        </div>
-      </SafeHtml>
+      {/* ── Bảng tên người dùng 3D Native Sprite nổi trên đầu (Luôn hướng về camera, không bị khuất) ── */}
+      {headNametagTexture && (
+        <sprite position={[0, isDancing ? 2.05 : 1.6, 0]} scale={[1.4, 0.35, 1]}>
+          <spriteMaterial
+            map={headNametagTexture}
+            transparent
+            depthTest={false}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      )}
 
       {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên đầu ── */}
       {activeBubble && (
         <SafeHtml
-          position={[0, isDancing ? 2.38 : 1.98, 0.05]}
+          position={[0, isDancing ? 2.5 : 2.08, 0.05]}
           center
           distanceFactor={14}
           style={{ pointerEvents: 'none', userSelect: 'none' }}

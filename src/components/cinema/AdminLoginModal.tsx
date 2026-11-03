@@ -15,6 +15,9 @@ import {
   Loader2,
   CheckCircle2,
   Users,
+  Mic,
+  MicOff,
+  MessageSquare,
 } from 'lucide-react';
 import type { ViewerInfo } from './CinemaHUD';
 
@@ -27,6 +30,8 @@ interface AdminLoginModalProps {
   onOpenAddVideo?: () => void;
   viewers?: ViewerInfo[];
   onToggleUserControl?: (targetSocketId: string, canControl: boolean) => void;
+  onToggleChatMute?: (targetSocketId: string, isMuted?: boolean) => void;
+  onToggleMicMute?: (targetSocketId: string, isMuted?: boolean) => void;
 }
 
 export function AdminLoginModal({
@@ -38,6 +43,8 @@ export function AdminLoginModal({
   onOpenAddVideo,
   viewers = [],
   onToggleUserControl,
+  onToggleChatMute,
+  onToggleMicMute,
 }: AdminLoginModalProps) {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
@@ -179,18 +186,50 @@ export function AdminLoginModal({
                                 )}
                               </p>
                             </div>
-                            {!v.isAdmin && onToggleUserControl && (
-                              <button
-                                type="button"
-                                onClick={() => onToggleUserControl(targetSocketId, !canUserControl)}
-                                className={`rounded-lg px-2.5 py-1 text-[10px] font-bold transition active:scale-95 ${
-                                  canUserControl
-                                    ? 'border border-rose-500/40 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30'
-                                    : 'border border-[#d8f95f]/40 bg-[#d8f95f]/20 text-[#d8f95f] hover:bg-[#d8f95f]/30'
-                                }`}
-                              >
-                                {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
-                              </button>
+                            {!v.isAdmin && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                {onToggleMicMute && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleMicMute(targetSocketId, !v.isMicMuted)}
+                                    className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 flex items-center gap-1 ${
+                                      v.isMicMuted
+                                        ? 'border border-rose-500/50 bg-rose-500/25 text-rose-300 hover:bg-rose-500/35'
+                                        : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                  >
+                                    {v.isMicMuted ? <MicOff className="h-3 w-3 text-rose-400" /> : <Mic className="h-3 w-3" />}
+                                    <span>{v.isMicMuted ? 'Mở Mic' : 'Cấm Mic'}</span>
+                                  </button>
+                                )}
+                                {onToggleChatMute && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleChatMute(targetSocketId, !v.isChatMuted)}
+                                    className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 flex items-center gap-1 ${
+                                      v.isChatMuted
+                                        ? 'border border-rose-500/50 bg-rose-500/25 text-rose-300 hover:bg-rose-500/35'
+                                        : 'border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                  >
+                                    <MessageSquare className="h-3 w-3" />
+                                    <span>{v.isChatMuted ? 'Mở Chat' : 'Cấm Chat'}</span>
+                                  </button>
+                                )}
+                                {onToggleUserControl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleUserControl(targetSocketId, !canUserControl)}
+                                    className={`rounded-lg px-2 py-1 text-[10px] font-bold transition active:scale-95 ${
+                                      canUserControl
+                                        ? 'border border-amber-500/40 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+                                        : 'border border-[#d8f95f]/40 bg-[#d8f95f]/20 text-[#d8f95f] hover:bg-[#d8f95f]/30'
+                                    }`}
+                                  >
+                                    {canUserControl ? 'Thu hồi' : 'Cấp quyền'}
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         );
