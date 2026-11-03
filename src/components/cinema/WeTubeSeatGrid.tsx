@@ -21,21 +21,22 @@ const seatBoxGeo = new THREE.BoxGeometry(1, 1, 1);
 
 // Tông màu ghế sáng sủa, sắc nét, rõ khối chuẩn Screenshot 2
 const seatMat = new THREE.MeshStandardMaterial({
-  color: '#3a4657', // Màu xám xanh slate hiện đại, ăn sáng tốt
+  color: '#4b5c73', // Màu xám xanh slate sáng, ăn sáng tốt
+  roughness: 0.35,
+  metalness: 0.15,
+});
+
+// Mặt lưng ốp sau ghế (hướng trực diện vào camera)
+const seatBackShellMat = new THREE.MeshStandardMaterial({
+  color: '#364559', // Không bị đen đặc khi tắt đèn
   roughness: 0.45,
   metalness: 0.15,
 });
 
-// Mặt lưng ốp sau ghế
-const seatBackShellMat = new THREE.MeshStandardMaterial({
-  color: '#26303d',
-  roughness: 0.65,
-});
-
-// Nhãn số/mác xám nhỏ trên lưng ghế (Screenshot 2)
+// Nhãn số/mác xám nhỏ trên lưng ghế sáng rõ
 const seatTagMat = new THREE.MeshStandardMaterial({
-  color: '#5b6b80',
-  roughness: 0.5,
+  color: '#94a3b8',
+  roughness: 0.3,
 });
 
 const seatSelectedMat = new THREE.MeshStandardMaterial({
@@ -155,63 +156,63 @@ export function WeTubeSeatGrid({
               <group position={[0, 0, 0]}>
                 {/* Đệm ngồi nhung đỏ */}
                 <mesh position={[0, 0.45, 0]} material={vipRedMat} castShadow>
-                  <boxGeometry args={[1.04, 0.2, 0.8]} />
+                  <boxGeometry args={[1.22, 0.22, 0.84]} />
                 </mesh>
                 {/* Lưng tựa nhung đỏ */}
-                <mesh position={[0, 0.95, 0.36]} material={vipRedMat} castShadow>
-                  <boxGeometry args={[1.08, 0.88, 0.16]} />
+                <mesh position={[0, 1.02, 0.38]} material={vipRedMat} castShadow>
+                  <boxGeometry args={[1.24, 0.94, 0.18]} />
                 </mesh>
                 {/* Tay vịn mạ vàng hoàng gia */}
-                {[-0.54, 0.54].map((x) => (
-                  <mesh key={x} position={[x, 0.65, 0.02]} material={vipGoldMat} castShadow>
-                    <boxGeometry args={[0.1, 0.32, 0.72]} />
+                {[-0.64, 0.64].map((x) => (
+                  <mesh key={x} position={[x, 0.68, 0.02]} material={vipGoldMat} castShadow>
+                    <boxGeometry args={[0.12, 0.34, 0.76]} />
                   </mesh>
                 ))}
                 {/* Vòm cung mạ vàng đỉnh tựa lưng (Screenshot 2) */}
-                <mesh position={[0, 1.38, 0.36]} rotation={[0, 0, 0]}>
-                  <torusGeometry args={[0.36, 0.042, 8, 24, Math.PI]} />
+                <mesh position={[0, 1.48, 0.38]} rotation={[0, 0, 0]}>
+                  <torusGeometry args={[0.42, 0.046, 8, 24, Math.PI]} />
                   <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.2} />
                 </mesh>
                 {/* Vương miện vàng hoàng gia lơ lửng ngay phía trên đỉnh ngai vàng VIP (Screenshot 2) */}
-                <GoldenCrown position={[0, 1.56, 0.36]} scale={1.05} />
+                <GoldenCrown position={[0, 1.68, 0.38]} scale={1.12} />
               </group>
             ) : (
-              // Ghế cinema hiện đại tông xám sáng sủa, rõ nét từng khối (Screenshot 2)
+              // Ghế cinema hiện đại rộng rãi, sắc nét, khoảng cách thoáng đãng
               <group position={[0, 0, 0]}>
                 {/* Chân ghế */}
-                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[0, 0.16, 0.02]} scale={[0.12, 0.32, 0.12]} />
-                {/* Đệm ngồi êm ái */}
+                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[0, 0.16, 0.02]} scale={[0.14, 0.32, 0.14]} />
+                {/* Đệm ngồi êm ái rộng rãi */}
                 <mesh
                   geometry={seatBoxGeo}
                   material={isSelected ? seatSelectedMat : seatMat}
-                  position={[0, 0.36, 0]}
-                  scale={[0.84, 0.14, 0.7]}
+                  position={[0, 0.38, 0]}
+                  scale={[1.08, 0.16, 0.78]}
                 />
-                {/* Lưng tựa trước (thấp để lộ vai áo và tên in trên lưng nhân vật) */}
+                {/* Lưng tựa trước (rộng rãi, tạo dáng ghế rạp phim cao cấp) */}
                 <mesh
                   geometry={seatBoxGeo}
                   material={isSelected ? seatSelectedMat : seatMat}
-                  position={[0, 0.64, 0.31]}
-                  rotation={[0.08, 0, 0]}
-                  scale={[0.84, 0.52, 0.12]}
+                  position={[0, 0.72, 0.33]}
+                  rotation={[0.07, 0, 0]}
+                  scale={[1.08, 0.62, 0.14]}
                 />
                 {/* Ốp lưng sau ghế */}
                 <mesh
                   geometry={seatBoxGeo}
                   material={seatBackShellMat}
-                  position={[0, 0.64, 0.375]}
-                  scale={[0.82, 0.5, 0.02]}
+                  position={[0, 0.72, 0.405]}
+                  scale={[1.06, 0.60, 0.02]}
                 />
-                {/* Mác/nhãn số ghế màu xám trên lưng ghế (rất rõ nét trong Screenshot 2) */}
+                {/* Mác/nhãn số ghế màu xám trên lưng ghế */}
                 <mesh
                   geometry={seatBoxGeo}
                   material={seatTagMat}
-                  position={[0, 0.78, 0.388]}
-                  scale={[0.26, 0.08, 0.01]}
+                  position={[0, 0.88, 0.418]}
+                  scale={[0.34, 0.09, 0.01]}
                 />
-                {/* Tay vịn hai bên */}
-                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[-0.43, 0.5, 0.02]} scale={[0.06, 0.06, 0.52]} />
-                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[0.43, 0.5, 0.02]} scale={[0.06, 0.06, 0.52]} />
+                {/* Tay vịn hai bên rộng rãi */}
+                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[-0.56, 0.54, 0.02]} scale={[0.08, 0.08, 0.58]} />
+                <mesh geometry={seatBoxGeo} material={seatLegMat} position={[0.56, 0.54, 0.02]} scale={[0.08, 0.08, 0.58]} />
               </group>
             )}
 

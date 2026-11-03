@@ -7,8 +7,8 @@ import { AISLE_X_POSITIONS, ROW_Y_POSITIONS, ROW_Z_POSITIONS } from '@/lib/seatL
 
 /** Dải đèn LED dọc trên tường bên: cách đều nhau 4m. */
 const STRIP_Z = [-8, -4, 0, 4, 8, 12, 16, 20];
-const ROW_DEPTH = 1.7;
-const RISER_WIDTH = 23;
+const ROW_DEPTH = 1.8;
+const RISER_WIDTH = 27;
 const HALF_W = ROOM.width / 2;
 
 // Tông màu tường và nan tiêu âm sáng sủa, ấm áp (Screenshot 2)
@@ -115,14 +115,14 @@ function SideWall({ side, glow, isDimmed }: { side: -1 | 1; glow: THREE.Texture;
         </mesh>
       ))}
 
-      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên (giảm mạnh khi tắt đèn rạp) */}
+      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên (hạ sáng dịu mắt khi tắt đèn rạp) */}
       {[-6, 0, 6, 12, 18].map((z) => (
         <pointLight
           key={`warm-${z}`}
           position={[wallX + inward * 1.8, 8.5, z]}
           color="#ffb866"
-          intensity={isDimmed ? 3.0 : 36}
-          distance={isDimmed ? 12 : 22}
+          intensity={isDimmed ? 2.5 : 36}
+          distance={isDimmed ? 14 : 22}
           decay={1.8}
         />
       ))}
@@ -154,7 +154,7 @@ export function CinemaRoom({ isDimmed = true }: { isDimmed?: boolean }) {
           <group key={`tier-${i}`}>
             <mesh position={[0, top / 2, z]}>
               <boxGeometry args={[RISER_WIDTH, top, ROW_DEPTH]} />
-              <meshStandardMaterial color="#1e2938" roughness={0.65} metalness={0.12} />
+              <meshStandardMaterial color="#243346" roughness={0.55} metalness={0.15} />
             </mesh>
             {/* Đèn LED viền bậc sáng ấm (an toàn khi tắt đèn) */}
             <mesh position={[0, top - 0.035, z - ROW_DEPTH / 2 - 0.01]}>

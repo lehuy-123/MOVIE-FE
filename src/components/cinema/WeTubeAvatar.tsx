@@ -233,20 +233,35 @@ export function WeTubeAvatar({
             <mesh geometry={sphereGeo} material={mat('#e58d8d', 0.7)} position={[0, 0.86, -0.25]} scale={[0.05, 0.02, 0.02]} />
           </>
         )}
-
-        {/* Vòng hào quang nhỏ định vị cho nhân vật của bạn */}
-        {isCurrentUser && (
-          <mesh position={[0, 1.48, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.16, 0.016, 8, 24]} />
-            <meshBasicMaterial color="#d8f95f" toneMapped={false} />
-          </mesh>
-        )}
       </group>
 
-      {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên đầu (Screenshot 2) ── */}
+      {/* ── Nhãn tên hiển thị rõ ràng trên đầu người dùng (Thay thế vòng tròn) ── */}
+      <SafeHtml
+        position={[0, isDancing ? 1.95 : 1.56, 0.03]}
+        center
+        distanceFactor={18}
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      >
+        <div className="flex items-center select-none pointer-events-none">
+          <div
+            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap shadow-[0_4px_16px_rgba(0,0,0,0.6)] backdrop-blur-md border flex items-center gap-1.5 transition-all ${
+              isCurrentUser
+                ? 'bg-amber-400 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 shadow-amber-400/20'
+                : 'bg-slate-900/85 text-white border-white/20'
+            }`}
+          >
+            {isCurrentUser && (
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-950 inline-block animate-pulse" />
+            )}
+            <span>{nickname || 'Khách'}</span>
+          </div>
+        </div>
+      </SafeHtml>
+
+      {/* ── Bong bóng thoại tròn màu trắng ngà nổi ngay phía trên đầu ── */}
       {activeBubble && (
         <SafeHtml
-          position={[0, isDancing ? 2.25 : 1.95, 0.05]}
+          position={[0, isDancing ? 2.38 : 1.98, 0.05]}
           center
           distanceFactor={14}
           style={{ pointerEvents: 'none', userSelect: 'none' }}

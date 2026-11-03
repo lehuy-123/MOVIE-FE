@@ -8,13 +8,13 @@ interface AudienceCeilingDownlightsProps {
 }
 
 // 12 Đèn downlight âm trần phân bố đều trên trần rạp chiếu thẳng xuống các hàng ghế
-const DOWNLIGHT_X = [-5.5, 0.0, 5.5];
-const DOWNLIGHT_Z = [0.5, 4.8, 9.2, 13.5];
+const DOWNLIGHT_X = [-6.5, 0.0, 6.5];
+const DOWNLIGHT_Z = [1.5, 6.5, 11.5, 16.5];
 
 /**
  * Hệ thống đèn trần chiếu rọi từ trên cao xuống các hàng ghế ngồi (Audience Ceiling Downlights).
  * Khi bật đèn: Các cụm đèn trần chiếu rọi thẳng từ trên trần xuống các dãy ghế, tạo vệt sáng ấm áp rõ ràng.
- * Khi tắt đèn: Đèn trần tắt hoàn toàn để phòng tối chuyên tâm xem phim.
+ * Khi tắt đèn: Giữ ánh sáng vàng ấm dịu an toàn (dimmed safety downlights) giúp khán phòng sáng rõ, ấm cúng.
  */
 export function AudienceCeilingDownlights({ isDimmed = true }: AudienceCeilingDownlightsProps) {
   const CEILING_Y = 18.8; // Độ cao trần rạp
@@ -44,36 +44,19 @@ export function AudienceCeilingDownlights({ isDimmed = true }: AudienceCeilingDo
           <mesh position={[0, -0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.3, 18]} />
             <meshBasicMaterial
-              color={isDimmed ? '#332717' : '#fff7e6'}
+              color={isDimmed ? '#451a03' : '#fff7e6'}
               toneMapped={false}
             />
           </mesh>
 
-          {/* 3. Đèn rọi Three.js chiếu thẳng đứng từ trần xuống ghế bên dưới */}
-          {!isDimmed && (
-            <>
-              {/* Điểm phát sáng nhẹ tại miệng đèn */}
-              <pointLight
-                position={[0, -0.2, 0]}
-                color="#ffe8cc"
-                intensity={8}
-                distance={6}
-                decay={2}
-              />
-
-              {/* Nón spotlight chiếu rọi thẳng xuống sàn và ghế */}
-              <spotLight
-                position={[0, -0.1, 0]}
-                target-position={[0, -18, 0]}
-                color="#ffe6c4"
-                intensity={32}
-                angle={Math.PI / 5.2}
-                penumbra={0.75}
-                distance={23}
-                decay={1.6}
-              />
-            </>
-          )}
+          {/* 3. Đèn rọi Three.js chiếu từ trần xuống sàn và ghế (hạ tối khi tắt đèn rạp) */}
+          <pointLight
+            position={[0, -0.5, 0]}
+            color="#fef3c7"
+            intensity={isDimmed ? 0.6 : 26}
+            distance={25}
+            decay={1.8}
+          />
         </group>
       ))}
     </group>

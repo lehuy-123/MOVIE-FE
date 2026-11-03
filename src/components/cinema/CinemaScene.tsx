@@ -69,35 +69,44 @@ export function CinemaScene({
         resetKey={cameraResetKey}
       />
 
-      {/* ── Hệ thống ánh sáng điện ảnh thực tế: Phản ứng chân thực khi BẬT / TẮT ĐÈN ── */}
-      {/* 1. Ánh sáng môi trường (Ambient Fill): Nâng tông sáng dịu hơn khi tắt đèn, không bị đen sì */}
+      {/* ── Hệ thống ánh sáng điện ảnh: Hạ tông tối vừa vặn khi TẮT ĐÈN theo yêu cầu ── */}
+      {/* 1. Ánh sáng môi trường (Ambient Fill): Hạ tối êm dịu, không bị chói sáng */}
       <ambientLight
         color="#ffffff"
-        intensity={isDimmed ? 0.48 : 1.25}
+        intensity={isDimmed ? 0.38 : 1.25}
       />
 
-      {/* 2. Ánh sáng phản xạ bán cầu (Hemisphere): Vòm trời & Sàn phản xạ ấm */}
+      {/* 2. Ánh sáng phản xạ bán cầu (Hemisphere): Tông trầm dịu mát */}
       <hemisphereLight
         args={[
-          isDimmed ? '#3b4f6b' : '#f8fafc',
-          isDimmed ? '#141c26' : '#2c394b',
-          isDimmed ? 0.45 : 1.2,
+          isDimmed ? '#243242' : '#f8fafc',
+          isDimmed ? '#0f1722' : '#2c394b',
+          isDimmed ? 0.32 : 1.2,
         ]}
       />
 
-      {/* 3. Đèn chính chiếu rọi từ trên cao (Sáng rõ khi BẬT ĐÈN, giữ vệt sáng mờ dịu khi TẮT ĐÈN) */}
+      {/* 3. Đèn chính chiếu rọi từ trên cao (Giữ vệt sáng ấm tự nhiên từ buồng máy chiếu) */}
       <directionalLight
-        position={[0, 26, 16]}
+        position={[0, 26, 20]}
         color="#fff6ed"
         intensity={isDimmed ? 0.18 : 2.0}
       />
 
-      {/* 4. Đèn rọi dịu nhẹ khán phòng giữ chi tiết hàng ghế khi tắt đèn (Cinema Twilight Fill) */}
+      {/* 4. Đèn rọi khán phòng trước (Front Auditorium Twilight Fill - dịu nhẹ vừa đủ thấy hàng ghế) */}
       <pointLight
-        position={[0, 12, 6]}
-        color="#ffe2ba"
+        position={[0, 11, 6]}
+        color="#fed7aa"
         intensity={isDimmed ? 14 : 45}
         distance={35}
+        decay={1.8}
+      />
+
+      {/* 5. Đèn rọi khán phòng sau (Rear Auditorium Fill - Dịu nhẹ, không làm lóa lưng ghế) */}
+      <pointLight
+        position={[0, 13, 18]}
+        color="#fde68a"
+        intensity={isDimmed ? 10 : 35}
+        distance={30}
         decay={1.8}
       />
 

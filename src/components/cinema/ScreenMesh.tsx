@@ -61,7 +61,9 @@ function useBrandingTexture(): THREE.CanvasTexture | null {
     ctx.clearRect(0, 0, 512, 64);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.75)';
+    ctx.shadowBlur = 8;
     ctx.font = "900 32px 'Inter', system-ui, -apple-system, sans-serif";
     try {
       // @ts-ignore
@@ -69,7 +71,7 @@ function useBrandingTexture(): THREE.CanvasTexture | null {
     } catch {
       // ignore
     }
-    ctx.fillText('LEHUY', 256, 34);
+    ctx.fillText('LEHUY', 256, 32);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -91,6 +93,9 @@ export function ScreenMesh({
   const spotGlowRef = useRef<THREE.SpotLight>(null);
   const ambientGlowRef = useRef<THREE.PointLight>(null);
   const brandingTex = useBrandingTexture();
+
+  const bezelThickness = 0.22;
+  const bottomBezelHeight = 0.62;
 
   // Đồng bộ vị trí 3D màn chiếu sang ma trận CSS 3D mỗi frame
   useFrame((state) => {
@@ -166,51 +171,48 @@ export function ScreenMesh({
     }
   });
 
-  const bezelThickness = 0.22;
-  const bottomBezelHeight = 0.62;
-
   return (
-    <group ref={groupRef} position={position} rotation={rotation} name="imax-screen-rig">
-      {/* 1. Khung viền màn chiếu rạp phim màu đen nhám (Cinema Bezel) */}
-      {/* Mặt lưng màn chiếu */}
-      <mesh position={[0, 0, -0.06]}>
-        <boxGeometry args={[width + 0.6, height + 0.6, 0.2]} />
-        <meshStandardMaterial color="#080a0e" roughness={0.85} metalness={0.2} />
+    <group ref={groupRef} position={position} rotation={rotation} name="imax-flat-screen-rig">
+      {/* 1. Khung viền màn chiếu phẳng IMAX nguyên bản (Cinema Bezel) */}
+      {/* Khung sau màn hình */}
+      <mesh position={[0, 0, -0.07]}>
+        <boxGeometry args={[width + 0.6, height + 0.6, 0.14]} />
+        <meshStandardMaterial color="#0a0e17" roughness={0.6} metalness={0.5} />
       </mesh>
 
       {/* Viền trên */}
       <mesh position={[0, height / 2 + bezelThickness / 2, 0.02]}>
         <boxGeometry args={[width + 0.6, bezelThickness, 0.1]} />
-        <meshStandardMaterial color="#090c12" roughness={0.8} />
+        <meshStandardMaterial color="#111827" roughness={0.5} metalness={0.4} />
       </mesh>
 
       {/* Viền trái */}
       <mesh position={[-width / 2 - bezelThickness / 2, 0, 0.02]}>
         <boxGeometry args={[bezelThickness, height + 0.6, 0.1]} />
-        <meshStandardMaterial color="#090c12" roughness={0.8} />
+        <meshStandardMaterial color="#111827" roughness={0.5} metalness={0.4} />
       </mesh>
 
       {/* Viền phải */}
       <mesh position={[width / 2 + bezelThickness / 2, 0, 0.02]}>
         <boxGeometry args={[bezelThickness, height + 0.6, 0.1]} />
-        <meshStandardMaterial color="#090c12" roughness={0.8} />
+        <meshStandardMaterial color="#111827" roughness={0.5} metalness={0.4} />
       </mesh>
 
       {/* Viền dưới dày hơn mang thương hiệu LEHUY */}
       <mesh position={[0, -height / 2 - bottomBezelHeight / 2, 0.02]}>
         <boxGeometry args={[width + 0.6, bottomBezelHeight, 0.12]} />
-        <meshStandardMaterial color="#090c12" roughness={0.8} />
+        <meshStandardMaterial color="#111827" roughness={0.5} metalness={0.4} />
       </mesh>
 
       {/* Logo chữ 'LEHUY' màu bạc trắng in chính giữa viền dưới màn hình */}
       {brandingTex && (
-        <mesh position={[0, -height / 2 - bottomBezelHeight / 2 + 0.03, 0.09]}>
-          <planeGeometry args={[3.8, 0.52]} />
+        <mesh position={[0, -height / 2 - bottomBezelHeight / 2, 0.09]}>
+          <planeGeometry args={[4.2, 0.54]} />
           <meshBasicMaterial map={brandingTex} transparent depthWrite={false} toneMapped={false} />
         </mesh>
       )}
 
-      {/* 2. Mặt nền màn chiếu khi chưa bật video */}
+      {/* 2. Mặt nền màn chiếu phẳng khi chưa bật video */}
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[width, height]} />
         <meshStandardMaterial

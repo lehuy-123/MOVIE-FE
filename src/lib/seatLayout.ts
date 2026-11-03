@@ -4,17 +4,19 @@ import type { SeatData } from '@/types/cinema';
 export const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
 /**
- * 10 cột chia 3 cụm (có lối đi giữa các cụm):
- *  - Trái:  01 (đơn) + 02·03 (đôi)
- *  - Giữa:  04·05·06 (ba)
- *  - Phải:  07·08·09 (ba) + 10 (đơn)
+ * 10 cột chia 3 cụm rộng rãi, đối xứng, ghế cách nhau 1.9m thoáng đãng:
+ *  - Cụm Trái (3 ghế):  01, 02, 03  [-10.5, -8.6, -6.7]
+ *  - Lối đi Trái:      x = -4.78 (rộng ~3.85m)
+ *  - Cụm Giữa (4 ghế):  04, 05 (VIP), 06 (VIP), 07  [-2.85, -0.95, 0.95, 2.85]
+ *  - Lối đi Phải:      x = +4.78 (rộng ~3.85m)
+ *  - Cụm Phải (3 ghế):  08, 09, 10  [6.7, 8.6, 10.5]
  */
-export const COL_X_POSITIONS = [-8.05, -6.55, -5.35, -2.25, -0.45, 1.35, 4.45, 5.65, 6.85, 8.05];
+export const COL_X_POSITIONS = [-10.5, -8.6, -6.7, -2.85, -0.95, 0.95, 2.85, 6.7, 8.6, 10.5];
 
-/** Hai lối đi giữa các cụm ghế (x). */
-export const AISLE_X_POSITIONS = [-3.8, 2.9];
+/** Hai lối đi rộng rãi giữa các cụm ghế (x). */
+export const AISLE_X_POSITIONS = [-4.78, 4.78];
 
-export const ROW_Z_POSITIONS = [-1.0, 0.7, 2.4, 4.1, 5.8, 7.5, 9.2, 10.9, 12.6, 14.3];
+export const ROW_Z_POSITIONS = [-1.0, 0.8, 2.6, 4.4, 6.2, 8.0, 9.8, 11.6, 13.4, 15.2];
 
 export const ROW_Y_POSITIONS = [0.2, 0.45, 0.7, 0.95, 1.2, 1.45, 1.7, 1.95, 2.2, 2.45];
 
