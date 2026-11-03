@@ -6,6 +6,7 @@ import { ScreenMesh } from './ScreenMesh';
 import { WeTubeSeatGrid } from './WeTubeSeatGrid';
 import { WeTubeStage } from './WeTubeStage';
 import { CinemaRoom } from './CinemaRoom';
+import { AudienceCeilingDownlights } from './AudienceCeilingDownlights';
 import { CinemaCameraController, CameraMode } from './CinemaCameraController';
 import { RoomUser, ChatMessage } from '@/types/socket';
 import { SeatData, DEFAULT_SHIRT_COLOR } from '@/types/cinema';
@@ -41,7 +42,7 @@ export function CinemaScene({
   currentSocketId,
   currentUserNickname = 'Bạn',
   currentUserShirtColor = DEFAULT_SHIRT_COLOR,
-  isDimmed = false,
+  isDimmed = true,
   isPlaying = true,
   cameraMode = 'overview',
   cameraResetKey = 0,
@@ -53,7 +54,6 @@ export function CinemaScene({
   return (
     <>
       <color attach="background" args={['#05070b']} />
-      <fog attach="fog" args={['#05070b', 65, 120]} />
 
       {/* Camera: mặc định góc cao bao quát từ phía sau; giới hạn do CinemaCameraController áp dụng */}
       <OrbitControls
@@ -69,47 +69,43 @@ export function CinemaScene({
         resetKey={cameraResetKey}
       />
 
-      {/* ── Hệ thống ánh sáng ấm áp, sáng sủa chuẩn xác theo Screenshot 2 ── */}
-      {/* 1. Ánh sáng môi trường tự nhiên (Ambient Fill) giúp thấy rõ toàn bộ rạp và ghế */}
-      <ambientLight color="#ffffff" intensity={isDimmed ? 1.0 : 1.9} />
-
-      {/* 2. Ánh sáng bán cầu (Hemisphere: Vòm trời sáng dịu - Đất phản xạ ấm) */}
-      <hemisphereLight
-        args={['#f8fafc', '#2c394b', isDimmed ? 0.9 : 1.75]}
+      {/* ── Hệ thống ánh sáng điện ảnh thực tế: Phản ứng chân thực khi BẬT / TẮT ĐÈN ── */}
+      {/* 1. Ánh sáng môi trường (Ambient Fill): Nâng tông sáng dịu hơn khi tắt đèn, không bị đen sì */}
+      <ambientLight
+        color="#ffffff"
+        intensity={isDimmed ? 0.48 : 1.25}
       />
 
-      {/* 3. Đèn chính chiếu rọi từ trên cao phía sau khán phòng (Key Light) */}
+      {/* 2. Ánh sáng phản xạ bán cầu (Hemisphere): Vòm trời & Sàn phản xạ ấm */}
+      <hemisphereLight
+        args={[
+          isDimmed ? '#3b4f6b' : '#f8fafc',
+          isDimmed ? '#141c26' : '#2c394b',
+          isDimmed ? 0.45 : 1.2,
+        ]}
+      />
+
+      {/* 3. Đèn chính chiếu rọi từ trên cao (Sáng rõ khi BẬT ĐÈN, giữ vệt sáng mờ dịu khi TẮT ĐÈN) */}
       <directionalLight
         position={[0, 26, 16]}
         color="#fff6ed"
-        intensity={isDimmed ? 1.3 : 2.5}
+        intensity={isDimmed ? 0.18 : 2.0}
       />
 
-      {/* 4. Đèn rọi trần phủ đều toàn bộ các hàng ghế khán giả (Audience Hall Downlights) */}
+      {/* 4. Đèn rọi dịu nhẹ khán phòng giữ chi tiết hàng ghế khi tắt đèn (Cinema Twilight Fill) */}
       <pointLight
-        position={[0, 14, 2]}
-        color="#ffeacc"
-        intensity={isDimmed ? 25 : 60}
-        distance={38}
-        decay={1.6}
-      />
-      <pointLight
-        position={[0, 15, 11]}
-        color="#ffeacc"
-        intensity={isDimmed ? 25 : 60}
-        distance={38}
-        decay={1.6}
-      />
-      <pointLight
-        position={[0, 15, -3]}
-        color="#ffeacc"
-        intensity={isDimmed ? 22 : 50}
+        position={[0, 12, 6]}
+        color="#ffe2ba"
+        intensity={isDimmed ? 14 : 45}
         distance={35}
-        decay={1.6}
+        decay={1.8}
       />
 
-      {/* Kiến trúc phòng: sàn bậc thang, tường LED, nan tiêu âm */}
-      <CinemaRoom />
+      {/* 5. Hệ thống đèn rọi trần chiếu thẳng xuống các hàng ghế ngồi (Audience Ceiling Downlights) */}
+      <AudienceCeilingDownlights isDimmed={isDimmed} />
+
+      {/* Kiến trúc phòng: sàn bậc thang, tường LED, nan tiêu âm (phản ứng theo isDimmed) */}
+      <CinemaRoom isDimmed={isDimmed} />
 
       {/* Sân khấu: loa cột, disco ball, 3 bục biểu diễn */}
       <WeTubeStage screenZ={SCREEN.z} />
@@ -125,7 +121,7 @@ export function CinemaScene({
         onSelectSeat={onSelectSeat}
       />
 
-      {/* Màn chiếu IMAX 3D Rig (Frame + Glow + Transform Sync) */}
+      {/* Màn chiếu IMAX 3D Rig (Frame + Brand + Ambilight trong trẻo + Transform Sync) */}
       <ScreenMesh
         width={SCREEN.width}
         height={SCREEN.height}

@@ -124,20 +124,23 @@ export function ScreenMesh({
       }
     }
 
-    // Dynamic ambilight flicker
+    // Dynamic cinema ambilight flicker (Hiệu ứng ánh sáng màn chiếu trong trẻo, không bị chói mờ)
     const time = state.clock.getElapsedTime();
     if (isPlaying) {
-      const flicker = Math.sin(time * 2.8) * 0.35 + Math.cos(time * 5.7) * 0.2;
-      const baseIntensity = isDimmed ? 4.5 : 3.2;
+      const flicker = Math.sin(time * 2.8) * 0.25 + Math.cos(time * 5.7) * 0.15;
+      // Ánh sáng màn chiếu dịu nhẹ vừa phải, không làm mờ nhoè màn hình
+      const baseGlow = isDimmed ? 3.0 : 1.5;
+      const baseSpot = isDimmed ? 4.5 : 2.0;
+      const baseAmbient = isDimmed ? 1.0 : 0.4;
 
       if (glowLightRef.current) {
-        glowLightRef.current.intensity = baseIntensity + flicker;
+        glowLightRef.current.intensity = baseGlow + flicker;
       }
       if (spotGlowRef.current) {
-        spotGlowRef.current.intensity = baseIntensity * 1.3 + flicker * 1.2;
+        spotGlowRef.current.intensity = baseSpot + flicker * 0.5;
       }
       if (ambientGlowRef.current) {
-        ambientGlowRef.current.intensity = 1.4 + flicker * 0.4;
+        ambientGlowRef.current.intensity = baseAmbient + flicker * 0.2;
       }
     } else {
       if (glowLightRef.current) {
@@ -150,14 +153,14 @@ export function ScreenMesh({
       if (spotGlowRef.current) {
         spotGlowRef.current.intensity = THREE.MathUtils.lerp(
           spotGlowRef.current.intensity,
-          1.0,
+          1.2,
           0.05
         );
       }
       if (ambientGlowRef.current) {
         ambientGlowRef.current.intensity = THREE.MathUtils.lerp(
           ambientGlowRef.current.intensity,
-          0.4,
+          0.3,
           0.05
         );
       }
@@ -216,38 +219,39 @@ export function ScreenMesh({
           roughness={0.2}
           metalness={0.1}
           emissive="#0b1320"
-          emissiveIntensity={isPlaying ? 0.25 : 0.05}
+          emissiveIntensity={isPlaying ? 0.15 : 0.05}
         />
       </mesh>
 
-      {/* 3. Hệ thống ánh sáng màn chiếu hắt ra khắp rạp */}
+      {/* 3. Hệ thống ánh sáng màn chiếu hắt ra nhẹ nhàng, trong trẻo */}
       <pointLight
         ref={glowLightRef}
-        position={[0, 0, 2.5]}
-        color={isPlaying ? '#93c5fd' : '#475569'}
-        intensity={3.2}
-        distance={35}
-        decay={1.6}
+        position={[0, -1, 2.0]}
+        color={isPlaying ? '#bae6fd' : '#475569'}
+        intensity={isDimmed ? 3.0 : 1.5}
+        distance={28}
+        decay={1.8}
       />
 
       <spotLight
         ref={spotGlowRef}
-        position={[0, -2, 3]}
-        color={isPlaying ? '#60a5fa' : '#334155'}
-        intensity={4.2}
+        position={[0, 0, 2.5]}
+        target-position={[0, -5, 12]}
+        color={isPlaying ? '#93c5fd' : '#334155'}
+        intensity={isDimmed ? 4.5 : 2.0}
         angle={Math.PI / 2.5}
-        penumbra={0.8}
-        distance={38}
-        decay={1.3}
+        penumbra={0.9}
+        distance={30}
+        decay={1.6}
       />
 
       <pointLight
         ref={ambientGlowRef}
-        position={[0, 0, -1.5]}
-        color={isPlaying ? '#3b82f6' : '#1e293b'}
-        intensity={1.2}
-        distance={20}
-        decay={2}
+        position={[0, 0, -1.0]}
+        color={isPlaying ? '#38bdf8' : '#1e293b'}
+        intensity={isDimmed ? 1.0 : 0.4}
+        distance={15}
+        decay={2.0}
       />
     </group>
   );

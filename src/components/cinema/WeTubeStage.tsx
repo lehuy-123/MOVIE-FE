@@ -3,8 +3,6 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { WeTubeAvatar } from './WeTubeAvatar';
-import { GoldenCrown } from './GoldenCrown';
 
 interface WeTubeStageProps {
   screenZ?: number;
@@ -13,7 +11,7 @@ interface WeTubeStageProps {
 const SPEAKER_X = 15.6;
 const WOOFER_Y = [-2.8, -0.6, 1.6];
 
-/** Loa cột đứng cao ~9.6m, 3 màng loa trầm + bảng hiển thị trạng thái phía trên (Screenshot 1 & 2) */
+/** Loa cột đứng cao ~9.6m, 3 màng loa trầm + bảng hiển thị trạng thái phía trên */
 function SpeakerTower({ x, z, side }: { x: number; z: number; side: -1 | 1 }) {
   return (
     <group position={[x, 5.7, z]} rotation={[0, side * -0.12, 0]}>
@@ -28,7 +26,7 @@ function SpeakerTower({ x, z, side }: { x: number; z: number; side: -1 | 1 }) {
         <meshStandardMaterial color="#12161d" roughness={0.6} />
       </mesh>
 
-      {/* Bảng màn hình hiển thị trạng thái phía trên màng loa (Screenshot 1 & 2) */}
+      {/* Bảng màn hình hiển thị trạng thái phía trên màng loa */}
       <group position={[0, 3.65, 1.33]}>
         <mesh>
           <boxGeometry args={[1.5, 0.5, 0.03]} />
@@ -57,39 +55,63 @@ function SpeakerTower({ x, z, side }: { x: number; z: number; side: -1 | 1 }) {
   );
 }
 
-/** Ghế Ngai Vàng Hoàng Gia VIP đặt trên bục vinh danh cánh phải sân khấu */
-function StageRoyalThrone() {
+/** Loa kiểm âm sân khấu vát góc chuyên nghiệp (Pro Stage Foldback Wedge Monitors) */
+function StageMonitorWedge({ x, z, rotationY }: { x: number; z: number; rotationY: number }) {
   return (
-    <group position={[0, 0, 0]}>
-      {/* Đệm ngồi bọc nhung đỏ thẫm */}
-      <mesh position={[0, 0.45, 0]} castShadow>
-        <boxGeometry args={[1.04, 0.2, 0.8]} />
-        <meshStandardMaterial color="#991b1b" roughness={0.35} />
+    <group position={[x, 0.95, z]} rotation={[0, rotationY, 0]}>
+      {/* Thùng loa kiểm âm vát chéo 45 độ nằm sát sàn */}
+      <mesh position={[0, 0.16, 0]} rotation={[-0.45, 0, 0]}>
+        <boxGeometry args={[1.2, 0.45, 0.75]} />
+        <meshStandardMaterial color="#10151d" roughness={0.5} metalness={0.6} />
       </mesh>
-      {/* Tựa lưng viền vàng hoàng gia */}
-      <mesh position={[0, 0.95, 0.36]} castShadow>
-        <boxGeometry args={[1.08, 0.88, 0.16]} />
-        <meshStandardMaterial color="#991b1b" roughness={0.35} />
+      {/* Mặt lưới tản âm kim loại bảo vệ */}
+      <mesh position={[0, 0.19, 0.02]} rotation={[-0.45, 0, 0]}>
+        <boxGeometry args={[1.1, 0.38, 0.02]} />
+        <meshStandardMaterial color="#1c2430" roughness={0.3} metalness={0.8} />
       </mesh>
-      {/* Khung tay vịn mạ vàng */}
-      {[-0.54, 0.54].map((x) => (
-        <mesh key={x} position={[x, 0.65, 0.02]} castShadow>
-          <boxGeometry args={[0.1, 0.32, 0.72]} />
-          <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.25} />
-        </mesh>
-      ))}
-      {/* Vòm cung mạ vàng đỉnh tựa lưng (Screenshot 2) */}
-      <mesh position={[0, 1.38, 0.36]}>
-        <torusGeometry args={[0.36, 0.042, 8, 24, Math.PI]} />
-        <meshStandardMaterial color="#f59e0b" metalness={0.9} roughness={0.2} />
+      {/* Vành loa trầm tròn bên trong mặt lưới */}
+      <mesh position={[0, 0.21, 0.04]} rotation={[Math.PI / 2 - 0.45, 0, 0]}>
+        <cylinderGeometry args={[0.22, 0.22, 0.02, 20]} />
+        <meshStandardMaterial color="#2d3748" roughness={0.3} metalness={0.9} />
       </mesh>
-      {/* Vương miện hoàng gia vàng 3D lơ lửng ngay phía trên ngai vàng (Screenshot 1 & 2) */}
-      <GoldenCrown position={[0, 1.56, 0.36]} scale={1.1} />
     </group>
   );
 }
 
-/** 8 Đèn rọi chân sân khấu (Footlight pucks) ánh vàng ấm áp dọc theo mép sân khấu (Screenshot 1 & 2) */
+/** Bục phát biểu sự kiện & điện ảnh cao cấp (Cinema Event Lectern / Podium) */
+function StageLectern({ x, z }: { x: number; z: number }) {
+  return (
+    <group position={[x, 0.9, z]} rotation={[0, 0.25, 0]}>
+      {/* Đế bục kim loại tròn */}
+      <mesh position={[0, 0.03, 0]}>
+        <cylinderGeometry args={[0.42, 0.46, 0.06, 20]} />
+        <meshStandardMaterial color="#111827" roughness={0.4} metalness={0.8} />
+      </mesh>
+      {/* Trụ đứng thon gọn sang trọng mạ kim loại xước */}
+      <mesh position={[0, 0.65, 0]}>
+        <cylinderGeometry args={[0.1, 0.14, 1.2, 16]} />
+        <meshStandardMaterial color="#1f2937" roughness={0.3} metalness={0.85} />
+      </mesh>
+      {/* Mặt bàn bục phát biểu vát nghiêng */}
+      <mesh position={[0, 1.28, 0.08]} rotation={[-0.35, 0, 0]}>
+        <boxGeometry args={[0.75, 0.06, 0.55]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.25} metalness={0.6} />
+      </mesh>
+      {/* Mic cổ ngỗng siêu nhỏ gắn trên bục phát biểu */}
+      <mesh position={[0.18, 1.42, -0.05]} rotation={[0.4, 0, 0]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.35, 8]} />
+        <meshStandardMaterial color="#0a0a0a" metalness={0.9} />
+      </mesh>
+      {/* Đèn chỉ báo LED nhỏ trên đầu micro */}
+      <mesh position={[0.18, 1.58, 0.02]}>
+        <sphereGeometry args={[0.022, 10, 10]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+    </group>
+  );
+}
+
+/** 8 Đèn rọi chân sân khấu (Footlight pucks) ánh vàng ấm áp dọc theo mép sân khấu */
 const FOOTLIGHT_X = [-10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5];
 
 export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
@@ -107,7 +129,7 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
 
   return (
     <group>
-      {/* 1. Sân khấu chính màu đen nhám */}
+      {/* 1. Sân khấu chính màu đen nhám sang trọng */}
       <mesh position={[0, 0.45, stageCenterZ]}>
         <boxGeometry args={[31, 0.9, stageDepth]} />
         <meshStandardMaterial color="#0c1016" roughness={0.6} metalness={0.25} />
@@ -141,61 +163,35 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
       <SpeakerTower x={-SPEAKER_X} z={screenZ + 1.6} side={-1} />
       <SpeakerTower x={SPEAKER_X} z={screenZ + 1.6} side={1} />
 
-      {/* 3. Quả cầu gương trên trần chính giữa màn chiếu */}
-      <group ref={discoBallRef} position={[0, 15.2, screenZ + 4.4]}>
-        <mesh position={[0, 1.2, 0]}>
-          <cylinderGeometry args={[0.02, 0.02, 2.4, 8]} />
-          <meshStandardMaterial color="#64748b" metalness={0.9} />
+      {/* 3. Trái châu (Quả cầu gương disco) treo trên cao phía trước màn chiếu - KHÔNG BỊ KHUẤT */}
+      {/* Màn chiếu cao đến Y=16.33. Trái châu treo tại Y=17.5, Z=screenZ+3.2 (hoàn toàn phía trên và phía trước màn hình) */}
+      <group ref={discoBallRef} position={[0, 17.5, screenZ + 3.2]}>
+        {/* Dây cáp treo thả từ trần rạp (Y=19) xuống quả cầu */}
+        <mesh position={[0, 0.75, 0]}>
+          <cylinderGeometry args={[0.016, 0.016, 1.5, 8]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.9} />
         </mesh>
+        {/* Quả cầu gương lấp lánh phản chiếu ánh sáng */}
         <mesh>
-          <sphereGeometry args={[0.75, 20, 20]} />
-          <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.15} emissive="#4b5563" emissiveIntensity={0.6} />
+          <sphereGeometry args={[0.68, 24, 24]} />
+          <meshStandardMaterial
+            color="#e2e8f0"
+            metalness={0.95}
+            roughness={0.12}
+            emissive="#64748b"
+            emissiveIntensity={0.5}
+          />
         </mesh>
-        <pointLight color="#fdf4ff" intensity={14} distance={14} decay={2} />
+        <pointLight color="#fdf4ff" intensity={10} distance={15} decay={2} />
       </group>
 
-      {/* 4. 3 bục biểu diễn / vinh danh phía trước màn chiếu (Screenshot 1 & 2) */}
-      {/* Bục trái: Vòng hồng + Nhân vật DJ Alex (Áo xanh pastel) */}
-      <group position={[-3.8, 0.9, screenZ + 2.9]}>
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.7, 0.88, 40]} />
-          <meshBasicMaterial color="#ff3d8b" side={THREE.DoubleSide} toneMapped={false} />
-        </mesh>
-        <pointLight position={[0, 0.2, 0]} color="#ff3d8b" intensity={5} distance={4.5} decay={2} />
-        <WeTubeAvatar
-          nickname="DJ Alex"
-          shirtColor="#bfdbfe"
-          position={[0, 0, 0]}
-          rotation={[0, Math.PI, 0]}
-          isDancing
-        />
-      </group>
+      {/* 4. Thiết bị sân khấu chuyên nghiệp (Thay thế 3 người đứng rối mắt): */}
+      {/* Hai loa kiểm âm sân khấu vát góc chuyên nghiệp hai bên cánh sân khấu */}
+      <StageMonitorWedge x={-5.2} z={stageFrontZ - 0.9} rotationY={0.35} />
+      <StageMonitorWedge x={5.2} z={stageFrontZ - 0.9} rotationY={-0.35} />
 
-      {/* Bục giữa: Vòng hồng + Nhân vật MC Linh (Áo xanh lá pastel) */}
-      <group position={[0, 0.9, screenZ + 3.3]}>
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.7, 0.88, 40]} />
-          <meshBasicMaterial color="#ff3d8b" side={THREE.DoubleSide} toneMapped={false} />
-        </mesh>
-        <pointLight position={[0, 0.2, 0]} color="#ff3d8b" intensity={5} distance={4.5} decay={2} />
-        <WeTubeAvatar
-          nickname="MC Linh"
-          shirtColor="#a7f3d0"
-          position={[0, 0, 0]}
-          rotation={[0, Math.PI, 0]}
-          isDancing
-        />
-      </group>
-
-      {/* Bục phải: Vòng vàng tím + Ngai vàng hoàng gia VIP có vương miện hoàng kim (Screenshot 1) */}
-      <group position={[3.8, 0.9, screenZ + 2.9]}>
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.72, 0.9, 40]} />
-          <meshBasicMaterial color="#c084fc" side={THREE.DoubleSide} toneMapped={false} />
-        </mesh>
-        <pointLight position={[0, 0.2, 0]} color="#c084fc" intensity={5} distance={4.5} decay={2} />
-        <StageRoyalThrone />
-      </group>
+      {/* Bục phát biểu điện ảnh cao cấp tinh tế đặt gọn gàng phía cánh trái sân khấu */}
+      <StageLectern x={-8.8} z={stageFrontZ - 1.4} />
     </group>
   );
 }

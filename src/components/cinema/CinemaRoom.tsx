@@ -63,7 +63,7 @@ function useStarPositions(count: number): Float32Array {
 }
 
 /** Một bên tường: nan tiêu âm + dải LED vàng ấm + đèn rọi tường gắn trần. */
-function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
+function SideWall({ side, glow, isDimmed }: { side: -1 | 1; glow: THREE.Texture; isDimmed?: boolean }) {
   const wallX = side * HALF_W;
   const inward = -side; // hướng vào phòng
   return (
@@ -87,7 +87,7 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
             <meshBasicMaterial
               map={glow}
               transparent
-              opacity={0.65}
+              opacity={isDimmed ? 0.35 : 0.65}
               blending={THREE.AdditiveBlending}
               depthWrite={false}
               toneMapped={false}
@@ -101,7 +101,7 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
             </mesh>
             <mesh position={[0, -0.39, 0]}>
               <cylinderGeometry args={[0.13, 0.13, 0.03, 14]} />
-              <meshBasicMaterial color="#ffe2a8" toneMapped={false} />
+              <meshBasicMaterial color={isDimmed ? '#92400e' : '#ffe2a8'} toneMapped={false} />
             </mesh>
           </group>
         </group>
@@ -115,14 +115,14 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
         </mesh>
       ))}
 
-      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên */}
+      {/* Đèn ấm thật sự rọi lên tường + hàng ghế hai bên (giảm mạnh khi tắt đèn rạp) */}
       {[-6, 0, 6, 12, 18].map((z) => (
         <pointLight
           key={`warm-${z}`}
           position={[wallX + inward * 1.8, 8.5, z]}
           color="#ffb866"
-          intensity={36}
-          distance={22}
+          intensity={isDimmed ? 3.0 : 36}
+          distance={isDimmed ? 12 : 22}
           decay={1.8}
         />
       ))}
@@ -135,7 +135,7 @@ function SideWall({ side, glow }: { side: -1 | 1; glow: THREE.Texture }) {
  * hai tường bên có dải LED vàng ấm, tường trước gắn màn chiếu viền rạp.
  * Tường sau chỉ render một mặt (hướng vào trong) để camera trên cao phía sau nhìn xuyên vào phòng.
  */
-export function CinemaRoom() {
+export function CinemaRoom({ isDimmed = true }: { isDimmed?: boolean }) {
   const glow = useStripGlowTexture();
   const stars = useStarPositions(220);
 
@@ -156,10 +156,10 @@ export function CinemaRoom() {
               <boxGeometry args={[RISER_WIDTH, top, ROW_DEPTH]} />
               <meshStandardMaterial color="#1e2938" roughness={0.65} metalness={0.12} />
             </mesh>
-            {/* Đèn LED viền bậc sáng ấm */}
+            {/* Đèn LED viền bậc sáng ấm (an toàn khi tắt đèn) */}
             <mesh position={[0, top - 0.035, z - ROW_DEPTH / 2 - 0.01]}>
               <boxGeometry args={[RISER_WIDTH, 0.045, 0.03]} />
-              <meshBasicMaterial color="#ffc477" transparent opacity={0.85} toneMapped={false} />
+              <meshBasicMaterial color="#ffc477" transparent opacity={isDimmed ? 0.35 : 0.85} toneMapped={false} />
             </mesh>
             {/* Lối đi: thảm lối đi + đèn chấm trắng vàng ấm */}
             {AISLE_X_POSITIONS.map((x) => (
@@ -170,11 +170,11 @@ export function CinemaRoom() {
                 </mesh>
                 <mesh position={[x - 0.5, top + 0.016, z + 0.5]}>
                   <boxGeometry args={[0.07, 0.012, 0.07]} />
-                  <meshBasicMaterial color="#fff4d4" toneMapped={false} />
+                  <meshBasicMaterial color="#fff4d4" transparent opacity={isDimmed ? 0.45 : 1.0} toneMapped={false} />
                 </mesh>
                 <mesh position={[x + 0.5, top + 0.016, z + 0.5]}>
                   <boxGeometry args={[0.07, 0.012, 0.07]} />
-                  <meshBasicMaterial color="#fff4d4" toneMapped={false} />
+                  <meshBasicMaterial color="#fff4d4" transparent opacity={isDimmed ? 0.45 : 1.0} toneMapped={false} />
                 </mesh>
               </group>
             ))}
@@ -207,8 +207,8 @@ export function CinemaRoom() {
       </mesh>
 
       {/* Hai tường bên */}
-      <SideWall side={-1} glow={glow} />
-      <SideWall side={1} glow={glow} />
+      <SideWall side={-1} glow={glow} isDimmed={isDimmed} />
+      <SideWall side={1} glow={glow} isDimmed={isDimmed} />
 
       {/* Trần + bầu trời ngàn sao */}
       <mesh position={[0, ROOM.height, ROOM_CENTER_Z]} rotation={[Math.PI / 2, 0, 0]}>

@@ -36,6 +36,8 @@ import {
   Lock,
   Shirt,
   Coffee,
+  Lightbulb,
+  LightbulbOff,
 } from 'lucide-react';
 import type { ScreenMeshHandle } from './ScreenMesh';
 import type { CameraMode } from './CinemaCameraController';
@@ -88,6 +90,8 @@ interface CinemaHUDProps {
   cameraMode: CameraMode;
   queueCount?: number;
   isAdmin?: boolean;
+  isDimmed?: boolean;
+  onToggleDimmed?: () => void;
 
   roomName?: string;
   onOpenRoomList?: () => void;
@@ -196,6 +200,8 @@ export function CinemaHUD({
   cameraMode,
   queueCount = 0,
   isAdmin = false,
+  isDimmed = true,
+  onToggleDimmed,
   roomName,
   onOpenRoomList,
   onOpenAdminLogin,
@@ -289,11 +295,15 @@ export function CinemaHUD({
           return;
         }
         onTogglePlay?.();
+      } else if ((e.key === 'l' || e.key === 'L') && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        onToggleDimmed?.();
+        showToast(isDimmed ? '💡 Đã bật đèn khán phòng' : '🎬 Đã tắt đèn rạp - Trải nghiệm điện ảnh!');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [canControl, onTogglePlay, isDimmed, onToggleDimmed]);
 
   // Click ra ngoài popover → đóng
   useEffect(() => {
@@ -540,6 +550,24 @@ export function CinemaHUD({
           </button>
 
           <span className="h-5 w-px bg-white/10 mx-0.5" />
+
+          {/* Nút Bật / Tắt Đèn Rạp (Chế độ xem phim thực thụ) */}
+          <button
+            id="hud-toggle-lights"
+            type="button"
+            onClick={() => {
+              onToggleDimmed?.();
+              showToast(isDimmed ? '💡 Đã bật đèn khán phòng' : '🎬 Đã tắt đèn rạp - Trải nghiệm điện ảnh!');
+            }}
+            className={`${iconBtn} ${!isDimmed ? 'bg-amber-400/20 !text-amber-300' : 'text-white/60 hover:text-white'}`}
+            title={isDimmed ? 'Bật sáng đèn rạp (Phím L)' : 'Tắt tối đèn rạp xem phim (Phím L)'}
+          >
+            {isDimmed ? (
+              <LightbulbOff className="h-4 w-4" />
+            ) : (
+              <Lightbulb className="h-4 w-4 text-amber-300 fill-amber-300" />
+            )}
+          </button>
 
           <button type="button" onClick={toggleFullscreen} className={iconBtn} title="Toàn màn hình">
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}

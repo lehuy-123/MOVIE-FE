@@ -472,7 +472,7 @@ export const CinemaScreenOverlay = forwardRef<
             backgroundColor: '#000000',
             borderRadius: '4px',
             overflow: 'hidden',
-            boxShadow: localPlaying ? '0 0 120px rgba(96, 165, 250, 0.4)' : 'none',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.65)',
             transformOrigin: '50% 50%',
             willChange: 'transform',
           }}

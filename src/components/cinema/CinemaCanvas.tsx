@@ -127,7 +127,8 @@ export default function CinemaCanvas({
     return null;
   });
 
-  const [isDimmed] = useState(false);
+  // Chế độ đèn rạp chiếu (Mặc định true: tắt đèn để xem phim chân thực)
+  const [isDimmed, setIsDimmed] = useState<boolean>(true);
 
   // CHỈ mở Thẻ vé khi user chưa từng có tên hoặc profile
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(() => {
@@ -598,6 +599,8 @@ export default function CinemaCanvas({
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
         onOpenProfile={openWardrobe}
         onTogglePrivateRoom={() => setIsRoomListModalOpen(true)}
+        isDimmed={isDimmed}
+        onToggleDimmed={() => setIsDimmed((d) => !d)}
       />
 
       {/* 4. Native React 19 YouTube IMAX Screen DOM Overlay (Zero createRoot, zero crash) */}
