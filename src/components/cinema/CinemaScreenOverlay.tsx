@@ -55,10 +55,10 @@ export interface CinemaScreenOverlayProps {
 /* ──────────────────── MÀN HÌNH ĐỘNG CHỜ CHIẾU PHIM (STANDBY ANIMATION) ──────────────────── */
 function CinemaStandbyScreen({
   roomName: _roomName,
-  isAdmin,
+  isAdmin: _isAdmin,
   onOpenAddVideo,
-  onOpenSeatMap,
-  onOpenAdminLogin,
+  onOpenSeatMap: _onOpenSeatMap,
+  onOpenAdminLogin: _onOpenAdminLogin,
 }: {
   roomName?: string;
   isAdmin?: boolean;
@@ -276,7 +276,7 @@ function CinemaStandbyScreen({
         />
 
         {/* Logo CGV chính hãng với hiệu ứng nhịp thở nhẹ nhàng */}
-        <div style={{ marginBottom: '32px', animation: 'cgvLogoBreath 4s ease-in-out infinite' }}>
+        <div style={{ marginBottom: '28px', animation: 'cgvLogoBreath 4s ease-in-out infinite' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/cgv-logo.png"
@@ -290,119 +290,40 @@ function CinemaStandbyScreen({
           />
         </div>
 
-        {/* Khung hướng dẫn & nút tương tác trực tiếp trên màn hình */}
-        <div
-          style={{
-            padding: '22px 36px',
-            borderRadius: '24px',
-            backgroundColor: 'rgba(15, 23, 42, 0.82)',
-            border: '1px solid rgba(255, 255, 255, 0.14)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.75)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '16px',
-            maxWidth: '720px',
-          }}
-        >
-          <p
+        {/* Nút Yêu Cầu Phim duy nhất */}
+        {onOpenAddVideo && (
+          <button
+            type="button"
+            onClick={onOpenAddVideo}
             style={{
-              fontSize: '14px',
-              color: '#e2e8f0',
-              lineHeight: 1.6,
-              margin: 0,
-              textAlign: 'center',
+              padding: '14px 36px',
+              borderRadius: '9999px',
+              background: 'linear-gradient(135deg, #d8f95f 0%, #a3e635 100%)',
+              color: '#070a12',
+              fontWeight: 800,
+              fontSize: '15px',
+              letterSpacing: '0.05em',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 0 35px rgba(216, 249, 95, 0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 0 45px rgba(216, 249, 95, 0.65)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 0 35px rgba(216, 249, 95, 0.45)';
             }}
           >
-            {isAdmin ? (
-              <span>
-                👑 <strong style={{ color: '#fbbf24' }}>Bạn đang là Quản trị viên:</strong> Hãy bấm nút{' '}
-                <strong style={{ color: '#d8f95f' }}>"Chọn Phim Chiếu"</strong> bên dưới để chọn phim và bắt đầu buổi chiếu cho toàn bộ khán phòng.
-              </span>
-            ) : (
-              <span>
-                🍿 <strong style={{ color: '#d8f95f' }}>Chào mừng khán giả đến với phòng chiếu!</strong> Quý khách vui lòng chọn chỗ ngồi ưng ý, bật micro để trò chuyện và chờ Quản trị viên khởi chiếu bộ phim.
-              </span>
-            )}
-          </p>
-
-          {/* Các nút tương tác */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '2px' }}>
-            {onOpenAddVideo && (
-              <button
-                type="button"
-                onClick={onOpenAddVideo}
-                style={{
-                  padding: '12px 28px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #d8f95f 0%, #a3e635 100%)',
-                  color: '#000000',
-                  fontWeight: 800,
-                  fontSize: '14px',
-                  letterSpacing: '0.04em',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 30px rgba(216, 249, 95, 0.45)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                }}
-              >
-                <span>🎬</span>
-                <span>{isAdmin ? 'CHỌN PHIM CHIẾU NGAY' : 'YÊU CẦU / ĐỀ XUẤT PHIM'}</span>
-              </button>
-            )}
-
-            {onOpenSeatMap && (
-              <button
-                type="button"
-                onClick={onOpenSeatMap}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'background-color 0.15s',
-                }}
-              >
-                <span>💺</span>
-                <span>CHỌN CHỖ NGỒI</span>
-              </button>
-            )}
-
-            {!isAdmin && onOpenAdminLogin && (
-              <button
-                type="button"
-                onClick={onOpenAdminLogin}
-                style={{
-                  padding: '12px 22px',
-                  borderRadius: '16px',
-                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                  border: '1px solid rgba(245, 158, 11, 0.45)',
-                  color: '#fcd34d',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <span>👑</span>
-                <span>ĐĂNG NHẬP HOST</span>
-              </button>
-            )}
-          </div>
-        </div>
+            <span style={{ fontSize: '18px' }}>🎬</span>
+            <span>YÊU CẦU PHIM</span>
+          </button>
+        )}
       </div>
 
       {/* 5. Chân màn hình chờ - Sóng âm thanh nhảy chuyển động & Tín hiệu rạp */}
