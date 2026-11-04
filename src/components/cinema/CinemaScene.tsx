@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from '@react-three/drei';
 import { ScreenMesh } from './ScreenMesh';
+import { ExitSign } from './ExitSign';
 import { WeTubeSeatGrid, OccupiedSeatInfo } from './WeTubeSeatGrid';
 import { WeTubeStage } from './WeTubeStage';
 import { CinemaRoom } from './CinemaRoom';
@@ -64,14 +65,17 @@ export function CinemaScene({
     <>
       <color attach="background" args={['#05070b']} />
 
-      {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; không cho chuột phải, con lăn hay trackpad vô tình làm dịch chuyển góc nhìn */}
+      {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; cho phép lăn chuột / trackpad 2 ngón để zoom in/out */}
       <OrbitControls
         ref={controlsRef}
         target={OVERVIEW_CAMERA.target}
         enableDamping
         dampingFactor={0.12}
         rotateSpeed={0.85}
-        enableZoom={false}
+        enableZoom={true}
+        zoomSpeed={1.1}
+        minDistance={6}
+        maxDistance={48}
         enablePan={false}
         mouseButtons={{
           LEFT: THREE.MOUSE.ROTATE,
@@ -80,7 +84,7 @@ export function CinemaScene({
         }}
         touches={{
           ONE: THREE.TOUCH.ROTATE,
-          TWO: -1 as any,
+          TWO: THREE.TOUCH.DOLLY_PAN,
         }}
       />
       <CinemaCameraController
@@ -164,6 +168,9 @@ export function CinemaScene({
         isPlaying={isPlaying}
         onScreenTransform={onScreenTransform}
       />
+
+      {/* Biển EXIT đèn LED khẩn cấp và cửa thoát hiểm bên trái màn chiếu */}
+      <ExitSign isDimmed={isDimmed} />
     </>
   );
 }

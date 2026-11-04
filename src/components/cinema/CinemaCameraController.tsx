@@ -42,7 +42,8 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       look,
       controlsTarget,
       apply: (c) => {
-        c.enableZoom = false;
+        c.enableZoom = true;
+        c.zoomSpeed = 1.0;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -51,11 +52,11 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         };
         c.touches = {
           ONE: THREE.TOUCH.ROTATE,
-          TWO: -1 as any,
+          TWO: THREE.TOUCH.DOLLY_PAN,
         };
         c.rotateSpeed = -0.35; // kéo chuột trái = quay đầu quanh ghế
         c.minDistance = FPV_DISTANCE;
-        c.maxDistance = FPV_DISTANCE;
+        c.maxDistance = FPV_DISTANCE * 20;
         c.minPolarAngle = Math.max(0.3, polar - 0.5);
         c.maxPolarAngle = Math.min(2.9, polar + 0.45);
         c.minAzimuthAngle = azimuth - 1.1;
@@ -71,7 +72,8 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       look,
       controlsTarget: look.clone(),
       apply: (c) => {
-        c.enableZoom = false;
+        c.enableZoom = true;
+        c.zoomSpeed = 1.1;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -80,11 +82,11 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         };
         c.touches = {
           ONE: THREE.TOUCH.ROTATE,
-          TWO: -1 as any,
+          TWO: THREE.TOUCH.DOLLY_PAN,
         };
         c.rotateSpeed = 0.5;
-        c.minDistance = 6;
-        c.maxDistance = 26;
+        c.minDistance = 4;
+        c.maxDistance = 32;
         c.minPolarAngle = 0.8;
         c.maxPolarAngle = 1.55;
         c.minAzimuthAngle = -0.7;
@@ -100,7 +102,8 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       look,
       controlsTarget: look.clone(),
       apply: (c) => {
-        c.enableZoom = false;
+        c.enableZoom = true;
+        c.zoomSpeed = 1.1;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -109,11 +112,11 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         };
         c.touches = {
           ONE: THREE.TOUCH.ROTATE,
-          TWO: -1 as any,
+          TWO: THREE.TOUCH.DOLLY_PAN,
         };
         c.rotateSpeed = 0.5;
-        c.minDistance = 6;
-        c.maxDistance = 24;
+        c.minDistance = 4;
+        c.maxDistance = 28;
         c.minPolarAngle = 1.0;
         c.maxPolarAngle = 1.8;
         c.minAzimuthAngle = -Infinity;
@@ -129,7 +132,8 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
     look,
     controlsTarget: look.clone(),
     apply: (c) => {
-      c.enableZoom = false;
+      c.enableZoom = true;
+      c.zoomSpeed = 1.1;
       c.enablePan = false;
       c.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
@@ -138,11 +142,11 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       };
       c.touches = {
         ONE: THREE.TOUCH.ROTATE,
-        TWO: -1 as any,
+        TWO: THREE.TOUCH.DOLLY_PAN,
       };
       c.rotateSpeed = 0.85;
-      c.minDistance = 12;
-      c.maxDistance = 40;
+      c.minDistance = 8;
+      c.maxDistance = 50;
       c.minPolarAngle = 0.7;
       c.maxPolarAngle = 1.52;
       c.minAzimuthAngle = -0.6;

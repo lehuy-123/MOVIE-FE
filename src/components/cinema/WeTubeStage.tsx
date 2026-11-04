@@ -159,9 +159,7 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
         </group>
       ))}
 
-      {/* 2. Hai loa cột lớn hai bên mép màn hình */}
-      <SpeakerTower x={-SPEAKER_X} z={screenZ + 1.6} side={-1} />
-      <SpeakerTower x={SPEAKER_X} z={screenZ + 1.6} side={1} />
+      {/* 2. Không gian hai bên màn chiếu thoáng đãng chuẩn rạp IMAX (Đã gỡ bỏ loa cột chắn tầm nhìn) */}
 
       {/* 3. Trái châu (Quả cầu gương disco) treo trên cao phía trước màn chiếu - KHÔNG BỊ KHUẤT */}
       <group ref={discoBallRef} position={[0, 18.0, screenZ + 3.4]}>
