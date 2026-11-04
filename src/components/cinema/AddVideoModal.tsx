@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { X, Film, Link as LinkIcon, Music, Crown, Send, Trash2, Play, ListVideo, Sparkles } from 'lucide-react';
+import { X, Film, Link as LinkIcon, Crown, Send, Trash2, Play, ListVideo } from 'lucide-react';
 import { VideoRequestItem } from '@/types/socket';
 
 interface AddVideoModalProps {
@@ -42,7 +42,7 @@ export function AddVideoModal({
 }: AddVideoModalProps) {
   const [url, setUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
-  const [activeTab, setActiveTab] = useState<'request' | 'queue' | 'trending'>('request');
+  const [activeTab, setActiveTab] = useState<'request' | 'queue'>('request');
 
   const detectedId = useMemo(() => extractYouTubeId(url), [url]);
 
@@ -64,16 +64,6 @@ export function AddVideoModal({
     setCustomTitle('');
     onClose();
   };
-
-  const trendingVideos = [
-    { id: 'IcrbM1l_BoI', title: 'Avicii - Wake Me Up (Official Video)', tag: 'Music Video' },
-    { id: '60ItHLz5WEA', title: 'Alan Walker - Faded', tag: 'EDM Masterpiece' },
-    { id: 'zSWdZVtXT7E', title: 'Interstellar - Main Theme IMAX', tag: 'Cinema OST' },
-    { id: 'd9MyW72ELq0', title: 'Avatar: The Way of Water Trailer', tag: 'Sci-Fi' },
-    { id: 'qIcTM8WXFjk', title: 'Cyberpunk 2077 Night City Trailer', tag: '4K 60fps' },
-    { id: 'aqz-KE-bpKQ', title: 'Big Buck Bunny (4K 60fps Animation)', tag: 'Animation' },
-    { id: 'jfKfPfyJRdk', title: 'lofi hip hop radio - beats to relax/study to', tag: 'Lofi 24/7' },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in select-none font-sans">
@@ -148,19 +138,6 @@ export function AddVideoModal({
           >
             <LinkIcon className="h-3.5 w-3.5" />
             <span>Dán Link YouTube</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('trending')}
-            className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 ${
-              activeTab === 'trending'
-                ? 'bg-lime-400 text-black shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Phim/Nhạc Hot</span>
           </button>
 
           <button
@@ -264,61 +241,7 @@ export function AddVideoModal({
           </form>
         )}
 
-        {/* Tab 2: Phim & Nhạc Hot */}
-        {activeTab === 'trending' && (
-          <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
-            {trendingVideos.map((vid) => (
-              <div
-                key={vid.id}
-                className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-left text-xs transition group"
-              >
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <img
-                    src={`https://img.youtube.com/vi/${vid.id}/default.jpg`}
-                    alt={vid.title}
-                    className="w-12 h-9 object-cover rounded-md shrink-0 border border-white/10"
-                  />
-                  <div className="overflow-hidden">
-                    <span className="font-bold text-white group-hover:text-lime-300 block truncate">
-                      {vid.title}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {vid.tag}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onAddVideo(vid.id, vid.title);
-                        onClose();
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-[#c8e658] hover:bg-[#d4f068] text-black font-extrabold text-[11px] transition shadow"
-                    >
-                      Chiếu Ngay
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onRequestVideo?.(vid.id, vid.title);
-                        onClose();
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-lime-400/20 text-white hover:text-lime-300 font-bold text-[11px] transition border border-white/10"
-                    >
-                      Yêu Cầu
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Tab 3: Hàng Chờ (Queue) */}
+        {/* Tab 2: Hàng Chờ (Queue) */}
         {activeTab === 'queue' && (
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
             {queue.length === 0 ? (

@@ -14,7 +14,7 @@ interface WeTubeVideoCardProps {
 }
 
 export function WeTubeVideoCard({
-  videoTitle = 'Avicii - Wake Me Up (Official Video)',
+  videoTitle = 'Đang chờ Quản trị viên chọn phim',
   suggester = 'Phòng chiếu',
   currentTimeStr = '0:00',
   durationStr = '0:00',
