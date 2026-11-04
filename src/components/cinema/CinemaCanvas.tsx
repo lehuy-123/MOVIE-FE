@@ -71,7 +71,7 @@ const AUDIO_SETTINGS_KEY = 'wetube-cine:audio-settings';
 const QUALITY_SETTINGS_KEY = 'wetube-cine:video-quality';
 
 export default function CinemaCanvas({
-  initialVideoId = '60ItHLz5WEA', // Default to Rạp 01 movie (Alan Walker - Faded, 100% embeddable globally)
+  initialVideoId = '', // Mặc định rỗng để hiển thị màn hình động chờ chiếu phim (Standby Animation)
 }: CinemaCanvasProps) {
   // Phòng chiếu hiện tại (mặc định Rạp 01 hoặc lấy từ URL ?room=cinema-01)
   const [roomId, setRoomId] = useState<string>(() => {
@@ -84,7 +84,7 @@ export default function CinemaCanvas({
   const [isRoomListModalOpen, setIsRoomListModalOpen] = useState(false);
 
   const [videoId, setVideoId] = useState(initialVideoId);
-  const [videoTitle, setVideoTitle] = useState('Alan Walker - Faded');
+  const [videoTitle, setVideoTitle] = useState('Đang chờ Quản trị viên chọn phim');
 
   // Khôi phục User Profile từ localStorage nếu đã có
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -220,8 +220,9 @@ export default function CinemaCanvas({
 
   // 1. Real-time WebSocket room synchronization hook
   const handleVideoChange = useCallback((vidId: string, title?: string) => {
-    setVideoId(vidId);
+    setVideoId(vidId || '');
     if (title) setVideoTitle(title);
+    else if (!vidId) setVideoTitle('Đang chờ Quản trị viên chọn phim');
   }, []);
 
   const {
@@ -665,7 +666,9 @@ export default function CinemaCanvas({
       <CinemaScreenOverlay
         ref={screenRef}
         videoId={videoId}
-        isPlaying={roomState?.status !== 'paused'}
+        roomName={roomState?.name || 'Rạp 01 · IMAX Star'}
+        isAdmin={isAdmin}
+        isPlaying={roomState?.status === 'playing' && Boolean(videoId)}
         isDimmed={isDimmed}
         canControl={canControl}
         showSubtitles={showSubtitles}
@@ -677,6 +680,8 @@ export default function CinemaCanvas({
         onPause={sendPause}
         onSeek={sendSeek}
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
+        onOpenSeatMap={() => setIsSeatMapModalOpen(true)}
+        onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
       />
 
       {/* 5. Three.js WeTube Ciné 3D Scene */}

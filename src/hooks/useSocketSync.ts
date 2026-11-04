@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
+  VideoPlaybackStatus,
   RoomState,
   RoomUser,
   RoomSummary,
@@ -122,10 +123,10 @@ export function useSocketSync({
     (
       timestamp: number,
       updatedAt: number,
-      status: 'playing' | 'paused',
+      status: VideoPlaybackStatus,
       senderId?: string
     ) => {
-      if (!screenRef.current) return;
+      if (!screenRef.current || status === 'waiting') return;
 
       const player = screenRef.current;
       const now = Date.now();
@@ -265,6 +266,11 @@ export function useSocketSync({
         setTimeout(() => {
           applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
         }, 800);
+      } else if (!state.videoId) {
+        hasInitializedVideoRef.current = true;
+        currentVideoIdRef.current = '';
+        onVideoChangeRef.current?.('', state.videoTitle || 'Đang chờ Quản trị viên chọn phim');
+        screenRef.current?.loadVideoById('', 0);
       }
     });
 
@@ -326,9 +332,9 @@ export function useSocketSync({
 
     // 6. Listen for sync-video event (video source changed)
     socket.on('sync-video', (payload) => {
-      currentVideoIdRef.current = payload.videoId;
-      onVideoChangeRef.current?.(payload.videoId, payload.videoTitle);
-      screenRef.current?.loadVideoById(payload.videoId, 0);
+      currentVideoIdRef.current = payload.videoId || '';
+      onVideoChangeRef.current?.(payload.videoId || '', payload.videoTitle);
+      screenRef.current?.loadVideoById(payload.videoId || '', 0);
     });
 
     // 6.05 Đồng bộ bật/tắt phụ đề video từ phòng chiếu

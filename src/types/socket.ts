@@ -1,4 +1,4 @@
-export type VideoPlaybackStatus = 'playing' | 'paused';
+export type VideoPlaybackStatus = 'playing' | 'paused' | 'waiting';
 
 export interface RoomUser {
   socketId: string;

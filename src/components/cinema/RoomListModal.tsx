@@ -44,45 +44,45 @@ export function RoomListModal({
       name: 'Rạp 01 · IMAX Star',
       order: 1,
       viewersCount: 1,
-      videoId: 'Sx5lJtEs56A',
-      videoTitle: 'Tình Xưa Xa Rồi - Tiếng Hát Ngọc Lan',
-      status: 'playing',
+      videoId: '',
+      videoTitle: 'Đang chờ Quản trị viên chọn phim',
+      status: 'waiting',
     },
     {
       roomId: 'cinema-02',
       name: 'Rạp 02 · Âm Nhạc & Chill',
       order: 2,
       viewersCount: 0,
-      videoId: 'IcrbM1l_BoI',
-      videoTitle: 'Avicii - Wake Me Up (Official Video)',
-      status: 'playing',
+      videoId: '',
+      videoTitle: 'Đang chờ Quản trị viên chọn phim',
+      status: 'waiting',
     },
     {
       roomId: 'cinema-03',
       name: 'Rạp 03 · Bom Tấn Điện Ảnh',
       order: 3,
       viewersCount: 0,
-      videoId: 'aqz-KE-bpKQ',
-      videoTitle: 'Big Buck Bunny 4K 60fps',
-      status: 'playing',
+      videoId: '',
+      videoTitle: 'Đang chờ Quản trị viên chọn phim',
+      status: 'waiting',
     },
     {
       roomId: 'cinema-04',
       name: 'Rạp 04 · Anime & Hoạt Hình',
       order: 4,
       viewersCount: 0,
-      videoId: 'dQw4w9WgXcQ',
-      videoTitle: 'Phim Ngắn Anime Cinema HD',
-      status: 'playing',
+      videoId: '',
+      videoTitle: 'Đang chờ Quản trị viên chọn phim',
+      status: 'waiting',
     },
     {
       roomId: 'cinema-05',
       name: 'Rạp 05 · Phòng Chiếu Riêng',
       order: 5,
       viewersCount: 0,
-      videoId: 'pPv3cU61_-M',
-      videoTitle: 'YouTube Video (pPv3cU61_-M)',
-      status: 'playing',
+      videoId: '',
+      videoTitle: 'Đang chờ Quản trị viên chọn phim',
+      status: 'waiting',
     },
   ];
 
@@ -177,13 +177,13 @@ export function RoomListModal({
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1 shrink-0 text-[11px]">
-                        {room.status === 'playing' ? (
+                        {room.status === 'playing' && room.videoId ? (
                           <span className="text-lime-400 flex items-center gap-1">
                             <Play className="h-3 w-3 fill-lime-400" /> Đang chiếu
                           </span>
                         ) : (
                           <span className="text-amber-400 flex items-center gap-1">
-                            <Pause className="h-3 w-3 fill-amber-400" /> Tạm dừng
+                            <Sparkles className="h-3 w-3 text-amber-400" /> Chờ chiếu
                           </span>
                         )}
                       </span>

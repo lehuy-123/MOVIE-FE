@@ -395,6 +395,7 @@ export function CinemaHUD({
   }
 
   const initial = nickname ? nickname.trim().charAt(0).toUpperCase() : 'K';
+  const isWaiting = !videoKey || videoKey.trim() === '';
 
   return (
     <div className="pointer-events-none fixed inset-0 z-30 select-none font-sans text-white">
@@ -432,22 +433,47 @@ export function CinemaHUD({
             <button
               type="button"
               onClick={() => {
+                if (isWaiting) {
+                  showToast('🎬 Rạp đang chờ phim. Bấm "Chiếu phim" để chọn phim!');
+                  onOpenAddVideo?.();
+                  return;
+                }
                 if (!canControl) {
                   showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video!');
                   return;
                 }
                 onTogglePlay?.();
               }}
-              title={canControl ? (isPlaying ? 'Bấm để tạm dừng video' : 'Bấm để tiếp tục phát video') : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video'}
+              title={
+                isWaiting
+                  ? 'Rạp đang chờ phim - Bấm để chọn phim chiếu'
+                  : canControl
+                  ? isPlaying
+                    ? 'Bấm để tạm dừng video'
+                    : 'Bấm để tiếp tục phát video'
+                  : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video'
+              }
               className={`flex items-center gap-2 font-semibold transition hover:scale-105 active:scale-95 ${
-                !canControl ? 'opacity-70 text-white/50 cursor-not-allowed' : isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'
+                isWaiting
+                  ? 'text-amber-300'
+                  : !canControl
+                  ? 'opacity-70 text-white/50 cursor-not-allowed'
+                  : isPlaying
+                  ? 'text-[#d8f95f]'
+                  : 'text-amber-300'
               }`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${isPlaying ? 'bg-[#d8f95f] animate-pulse' : 'bg-amber-300'}`}
+                className={`h-2 w-2 rounded-full ${
+                  isWaiting
+                    ? 'bg-amber-400 animate-pulse'
+                    : isPlaying
+                    ? 'bg-[#d8f95f] animate-pulse'
+                    : 'bg-amber-300'
+                }`}
               />
-              {isPlaying ? 'Đang chiếu' : 'Tạm dừng'}
-              {!canControl && <Lock className="h-2.5 w-2.5 text-white/40 ml-0.5" />}
+              {isWaiting ? 'Chờ phim' : isPlaying ? 'Đang chiếu' : 'Tạm dừng'}
+              {!canControl && !isWaiting && <Lock className="h-2.5 w-2.5 text-white/40 ml-0.5" />}
             </button>
             <span className="h-4 w-px bg-white/15" />
             <span className="flex items-center gap-2 text-white/80">
@@ -675,29 +701,53 @@ export function CinemaHUD({
           <button
             type="button"
             onClick={() => {
+              if (isWaiting) {
+                showToast('🎬 Rạp đang chờ phim. Hãy bấm "Chiếu phim" để chọn phim!');
+                onOpenAddVideo?.();
+                return;
+              }
               if (!canControl) {
                 showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển video!');
                 return;
               }
               onTogglePlay?.();
             }}
-            className={`${iconBtn} ${!canControl ? 'opacity-50 text-white/40 cursor-not-allowed' : isPlaying ? 'text-[#d8f95f]' : 'text-amber-300'}`}
-            title={canControl ? (isPlaying ? 'Tạm dừng video' : 'Phát tiếp tục') : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển'}
+            className={`${iconBtn} ${
+              isWaiting
+                ? 'text-amber-300 hover:text-amber-200'
+                : !canControl
+                ? 'opacity-50 text-white/40 cursor-not-allowed'
+                : isPlaying
+                ? 'text-[#d8f95f]'
+                : 'text-amber-300'
+            }`}
+            title={
+              isWaiting
+                ? 'Rạp đang chờ phim - Bấm để chọn phim'
+                : canControl
+                ? isPlaying
+                  ? 'Tạm dừng video'
+                  : 'Phát tiếp tục'
+                : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể điều khiển'
+            }
           >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {isWaiting ? <Film className="h-4 w-4 text-amber-300" /> : isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
 
           {/* Thanh tua thời gian ở thanh điều khiển đáy */}
           <div className="flex items-center gap-1.5 sm:gap-2 px-1 sm:px-2 flex-1 md:flex-initial">
-            <span className="text-[9.5px] sm:text-[10px] tabular-nums font-mono text-white/50">{formatTime(time.cur)}</span>
+            <span className="text-[9.5px] sm:text-[10px] tabular-nums font-mono text-white/50">
+              {isWaiting ? '0:00' : formatTime(time.cur)}
+            </span>
             <div className="relative flex items-center flex-1 md:flex-initial">
               <input
                 type="range"
                 min={0}
-                max={time.dur > 0 ? Math.floor(time.dur) : 100}
-                value={Math.floor(time.cur)}
-                disabled={!canControl}
+                max={time.dur > 0 && !isWaiting ? Math.floor(time.dur) : 100}
+                value={isWaiting ? 0 : Math.floor(time.cur)}
+                disabled={!canControl || isWaiting}
                 onChange={(e) => {
+                  if (isWaiting) return;
                   if (!canControl) {
                     showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video!');
                     return;
@@ -707,14 +757,22 @@ export function CinemaHUD({
                   screenRef.current?.seekTo(target);
                 }}
                 className={`h-1.5 w-full md:w-36 lg:w-56 xl:w-72 2xl:w-[380px] min-w-[50px] appearance-none rounded-full bg-white/20 accent-[#d8f95f] transition-all hover:h-2 ${
-                  canControl ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
+                  canControl && !isWaiting ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
                 }`}
                 aria-label="Tua video"
-                title={canControl ? 'Kéo để tua video nhanh' : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video'}
+                title={
+                  isWaiting
+                    ? 'Chưa có phim đang chiếu'
+                    : canControl
+                    ? 'Kéo để tua video nhanh'
+                    : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video'
+                }
               />
-              {!canControl && <Lock className="ml-1 h-2.5 w-2.5 text-white/35 shrink-0" />}
+              {(!canControl || isWaiting) && <Lock className="ml-1 h-2.5 w-2.5 text-white/35 shrink-0" />}
             </div>
-            <span className="text-[9.5px] sm:text-[10px] tabular-nums font-mono text-white/40">{formatTime(time.dur)}</span>
+            <span className="text-[9.5px] sm:text-[10px] tabular-nums font-mono text-white/40">
+              {isWaiting ? '0:00' : formatTime(time.dur)}
+            </span>
           </div>
 
           {/* Bật / Tắt phụ đề đồng bộ cả khán phòng */}
