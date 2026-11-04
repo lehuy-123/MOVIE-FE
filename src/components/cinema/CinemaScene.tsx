@@ -10,6 +10,7 @@ import { WeTubeSeatGrid, OccupiedSeatInfo } from './WeTubeSeatGrid';
 import { WeTubeStage } from './WeTubeStage';
 import { CinemaRoom } from './CinemaRoom';
 import { AudienceCeilingDownlights } from './AudienceCeilingDownlights';
+import { ChristmasDecorations } from './ChristmasDecorations';
 import { CinemaCameraController, CameraMode } from './CinemaCameraController';
 import { RoomUser, ChatMessage } from '@/types/socket';
 import { SeatData, DEFAULT_SHIRT_COLOR } from '@/types/cinema';
@@ -158,6 +159,7 @@ export function CinemaScene({
         activeBubbles={activeBubbles}
         currentSocketId={currentSocketId}
         isDimmed={isDimmed}
+        isFirstPersonPov={cameraMode === 'seat'}
         onSelectSeat={onSelectSeat}
       />
 
@@ -176,6 +178,9 @@ export function CinemaScene({
 
       {/* Hiệu ứng tia sáng máy chiếu từ buồng chiếu phía sau hắt lên màn hình khi BẬT ĐÈN */}
       <CinemaProjectorBeam isDimmed={isDimmed} />
+
+      {/* Trang trí Giáng Sinh Noel 3D (Cây thông Noel, Người tuyết, Vòng nguyệt quế, Hộp quà & Tuyết rơi) */}
+      <ChristmasDecorations isDimmed={isDimmed} />
     </>
   );
 }

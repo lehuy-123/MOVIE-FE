@@ -115,9 +115,9 @@ function CinemaStandbyScreen({
           50% { opacity: 0.38; transform: rotate(5deg) scaleX(1.15); }
         }
         @keyframes cgvParticleFloat {
-          0% { transform: translateY(0px) translateX(0px); opacity: 0.2; }
-          50% { transform: translateY(-40px) translateX(20px); opacity: 0.8; }
-          100% { transform: translateY(0px) translateX(0px); opacity: 0.2; }
+          0% { transform: translateY(-20px) translateX(0px) rotate(0deg); opacity: 0.25; }
+          50% { transform: translateY(45px) translateX(18px) rotate(180deg); opacity: 0.85; }
+          100% { transform: translateY(-20px) translateX(0px) rotate(360deg); opacity: 0.25; }
         }
       `}</style>
 
@@ -131,7 +131,7 @@ function CinemaStandbyScreen({
           height: '1100px',
           marginLeft: '-350px',
           background:
-            'conic-gradient(from 180deg at 50% 0%, rgba(216, 249, 95, 0) 155deg, rgba(254, 215, 170, 0.15) 175deg, rgba(255, 255, 255, 0.28) 180deg, rgba(254, 215, 170, 0.15) 185deg, rgba(216, 249, 95, 0) 205deg)',
+            'conic-gradient(from 180deg at 50% 0%, rgba(239, 68, 68, 0) 155deg, rgba(254, 215, 170, 0.16) 175deg, rgba(255, 255, 255, 0.28) 180deg, rgba(254, 215, 170, 0.16) 185deg, rgba(239, 68, 68, 0) 205deg)',
           filter: 'blur(35px)',
           pointerEvents: 'none',
           animation: 'cgvBeamSweep 8s ease-in-out infinite',
@@ -139,28 +139,33 @@ function CinemaStandbyScreen({
         }}
       />
 
-      {/* 2. Các hạt bụi sao lơ lửng trong không gian rạp */}
+      {/* 2. Các bông tuyết Noel & hạt sao lấp lánh trên màn hình chờ */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }}>
-        {[...Array(24)].map((_, i) => (
+        {[...Array(28)].map((_, i) => (
           <div
             key={i}
             style={{
               position: 'absolute',
-              top: `${(i * 17) % 95}%`,
+              top: `${(i * 17) % 92}%`,
               left: `${(i * 23) % 95}%`,
-              width: `${(i % 3) + 2}px`,
-              height: `${(i % 3) + 2}px`,
-              borderRadius: '50%',
-              backgroundColor: i % 2 === 0 ? '#d8f95f' : '#ffffff',
-              boxShadow: `0 0 8px ${i % 2 === 0 ? '#d8f95f' : '#ffffff'}`,
+              fontSize: i % 3 === 0 ? `${(i % 8) + 12}px` : undefined,
+              width: i % 3 === 0 ? undefined : `${(i % 3) + 3}px`,
+              height: i % 3 === 0 ? undefined : `${(i % 3) + 3}px`,
+              borderRadius: i % 3 === 0 ? undefined : '50%',
+              color: '#ffffff',
+              backgroundColor: i % 3 === 0 ? undefined : i % 2 === 0 ? '#fde047' : '#ffffff',
+              boxShadow: i % 3 === 0 ? undefined : `0 0 8px ${i % 2 === 0 ? '#fde047' : '#ffffff'}`,
+              textShadow: i % 3 === 0 ? '0 0 10px rgba(255,255,255,0.8)' : undefined,
               animation: `cgvParticleFloat ${(i % 5) + 6}s ease-in-out infinite`,
-              animationDelay: `${i * 0.4}s`,
+              animationDelay: `${i * 0.35}s`,
             }}
-          />
+          >
+            {i % 3 === 0 ? '❄' : null}
+          </div>
         ))}
       </div>
 
-      {/* 3. Thanh trên cùng của màn hình chờ */}
+      {/* 3. Thanh trên cùng của màn hình chờ (Noel Edition) */}
       <div
         style={{
           width: '100%',
@@ -177,17 +182,18 @@ function CinemaStandbyScreen({
             gap: '12px',
             padding: '10px 22px',
             borderRadius: '9999px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(220, 38, 38, 0.12)',
+            border: '1px solid rgba(248, 113, 113, 0.28)',
             backdropFilter: 'blur(10px)',
           }}
         >
+          <span style={{ fontSize: '15px' }}>🎄</span>
           <span style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '0.2em', color: '#ef4444' }}>
             CJ CGV
           </span>
           <span style={{ width: '1px', height: '14px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
-          <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.15em', color: '#e2e8f0' }}>
-            IMAX LASER CINEMA
+          <span style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.15em', color: '#fde68a' }}>
+            MERRY CHRISTMAS · IMAX CINEMA
           </span>
         </div>
 

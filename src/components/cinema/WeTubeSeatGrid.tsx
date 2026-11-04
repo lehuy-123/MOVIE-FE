@@ -67,6 +67,7 @@ interface WeTubeSeatGridProps {
   activeBubbles?: ChatMessage[];
   currentSocketId?: string | null;
   isDimmed?: boolean;
+  isFirstPersonPov?: boolean;
 }
 
 export function WeTubeSeatGrid({
@@ -82,6 +83,7 @@ export function WeTubeSeatGrid({
   activeBubbles = [],
   currentSocketId,
   isDimmed = true,
+  isFirstPersonPov = false,
 }: WeTubeSeatGridProps) {
   // Ghế thời gian thực dựa trên kết nối người dùng thật trong phòng
   const seats: SeatData[] = useMemo(() => {
@@ -289,6 +291,7 @@ export function WeTubeSeatGrid({
                 shirtColor={seat.avatarColor || '#a7f3d0'}
                 position={[0, 0.43, 0]}
                 isCurrentUser={isSelected}
+                isFirstPersonPov={isSelected && isFirstPersonPov}
                 seatId={seat.id}
                 activeBubble={seatBubble}
                 isAdmin={isSelected ? currentUserIsAdmin : occupiedSeats[seat.id]?.isAdmin}

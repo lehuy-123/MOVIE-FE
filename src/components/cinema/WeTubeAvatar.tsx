@@ -19,11 +19,14 @@ interface WeTubeAvatarProps {
   isMicOn?: boolean;
   isSpeaking?: boolean;
   isMicMuted?: boolean;
+  isFirstPersonPov?: boolean;
 }
 
 /* ──────────────── Shared geometry / material caches ──────────────── */
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 const sphereGeo = new THREE.SphereGeometry(1, 20, 14);
+const santaBrimGeo = new THREE.TorusGeometry(0.24, 0.055, 10, 22);
+const santaConeGeo = new THREE.ConeGeometry(0.235, 0.42, 16);
 
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 function mat(color?: string | null, roughness = 0.75): THREE.MeshStandardMaterial {
@@ -51,6 +54,7 @@ function getHeadNametagTexture(opts: {
   isMicOn?: boolean;
   isSpeaking?: boolean;
   isMicMuted?: boolean;
+  isFirstPersonPov?: boolean;
 }): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') return null;
   const safeName = opts.nickname && opts.nickname.trim().length > 0 ? opts.nickname.trim() : 'Khán giả';
@@ -239,6 +243,7 @@ export function WeTubeAvatar({
   rotation = [0, 0, 0],
   isDancing = false,
   isCurrentUser = false,
+  isFirstPersonPov = false,
   seatId,
   activeBubble,
   isAdmin = false,
@@ -246,6 +251,7 @@ export function WeTubeAvatar({
   isSpeaking = false,
   isMicMuted = false,
 }: WeTubeAvatarProps) {
+  const hideSelfHeadInPov = isCurrentUser && isFirstPersonPov;
   const look = useMemo(() => {
     const h = hashString(nickname || 'x');
     const defaultColor = PASTEL_SHIRTS[h % PASTEL_SHIRTS.length];
@@ -342,19 +348,30 @@ export function WeTubeAvatar({
           <mesh geometry={boxGeo} material={skin} position={[0, -0.27, 0]} scale={[0.09, 0.14, 0.1]} />
         </group>
 
-        {/* ── Đầu chibi gọn gàng ── */}
-        <mesh geometry={sphereGeo} material={skin} position={[0, 0.94, 0.03]} scale={0.27} />
-        {/* Mái tóc màu tối bóng mượt */}
-        <mesh geometry={sphereGeo} material={hair} position={[0, 0.98, 0.09]} scale={[0.285, 0.275, 0.285]} />
-        {look.style === 1 && (
-          <mesh geometry={boxGeo} material={hair} position={[0, 0.7, 0.2]} scale={[0.5, 0.42, 0.12]} />
-        )}
-        {look.style === 2 && (
-          <mesh geometry={sphereGeo} material={hair} position={[0, 1.27, 0.1]} scale={0.1} />
+        {/* ── Đầu chibi gọn gàng & Mũ Noel (Ẩn cho chính người dùng khi ở chế độ góc nhìn POV thứ nhất để không che màn hình) ── */}
+        {!hideSelfHeadInPov && (
+          <>
+            <mesh geometry={sphereGeo} material={skin} position={[0, 0.94, 0.03]} scale={0.27} />
+            {/* Mái tóc màu tối bóng mượt */}
+            <mesh geometry={sphereGeo} material={hair} position={[0, 0.98, 0.09]} scale={[0.285, 0.275, 0.285]} />
+            {look.style === 1 && (
+              <mesh geometry={boxGeo} material={hair} position={[0, 0.7, 0.2]} scale={[0.5, 0.42, 0.12]} />
+            )}
+
+            {/* ── Mũ Ông Già Noel (Santa Hat 3D) ── */}
+            <group position={[0, 1.15, 0.06]} rotation={[0.1, 0, -0.08]}>
+              {/* Viền bông trắng quanh trán */}
+              <mesh geometry={santaBrimGeo} material={mat('#f8fafc', 0.65)} rotation={[Math.PI / 2, 0, 0]} />
+              {/* Chóp mũ đỏ Giáng Sinh */}
+              <mesh geometry={santaConeGeo} material={mat('#dc2626', 0.5)} position={[0, 0.2, 0]} />
+              {/* Cục bông trắng tròn trên chóp mũ */}
+              <mesh geometry={sphereGeo} material={mat('#ffffff', 0.55)} position={[0, 0.42, 0]} scale={0.072} />
+            </group>
+          </>
         )}
 
         {/* Khuôn mặt (khi đứng trên sân khấu quay mặt về khán giả) */}
-        {isDancing && (
+        {isDancing && !hideSelfHeadInPov && (
           <>
             <mesh geometry={sphereGeo} material={mat('#111318', 0.4)} position={[-0.09, 0.93, -0.235]} scale={0.03} />
             <mesh geometry={sphereGeo} material={mat('#111318', 0.4)} position={[0.09, 0.93, -0.235]} scale={0.03} />
@@ -363,9 +380,9 @@ export function WeTubeAvatar({
         )}
       </group>
 
-      {/* ── Bảng tên người dùng 3D Native Sprite nổi trên đầu (Luôn hướng về camera, không bị khuất) ── */}
-      {headNametagTexture && (
-        <sprite position={[0, isDancing ? 2.05 : 1.6, 0]} scale={[1.4, 0.35, 1]}>
+      {/* ── Bảng tên người dùng 3D Native Sprite nổi trên đầu (Luôn hướng về camera, không bị khuất, ẩn khi tự nhìn POV) ── */}
+      {headNametagTexture && !hideSelfHeadInPov && (
+        <sprite position={[0, isDancing ? 2.18 : 1.76, 0]} scale={[1.4, 0.35, 1]}>
           <spriteMaterial
             map={headNametagTexture}
             transparent
