@@ -417,42 +417,6 @@ export function CinemaHUD({
               </span>
             </div>
           </button>
-
-          <div className="hidden flex-col gap-2 pl-1 sm:flex">
-            <h2 className="line-clamp-2 text-[17px] font-bold leading-snug tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-              {videoTitle}
-            </h2>
-            <div className="flex flex-col gap-1">
-              <p className="text-[11px] font-medium text-white/50">
-                {suggester} đề xuất · {formatTime(time.cur)}
-                {time.dur > 0 ? ` / ${formatTime(time.dur)}` : ''}
-              </p>
-              {/* Thanh tua thời gian video mượt mà */}
-              <div
-                className={`relative h-2 w-[220px] rounded-full bg-white/15 overflow-hidden transition ${
-                  canControl ? 'cursor-pointer hover:h-2.5' : 'cursor-not-allowed opacity-60'
-                }`}
-                title={canControl ? 'Bấm để tua video' : '🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video'}
-                onClick={(e) => {
-                  if (!canControl) {
-                    showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể tua video!');
-                    return;
-                  }
-                  if (time.dur <= 0) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                  const targetTime = pct * time.dur;
-                  onSeek?.(targetTime);
-                  screenRef.current?.seekTo(targetTime);
-                }}
-              >
-                <div
-                  className="h-full rounded-full bg-[#d8f95f] transition-all"
-                  style={{ width: `${time.dur > 0 ? (time.cur / time.dur) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Giữa: trạng thái phòng */}
