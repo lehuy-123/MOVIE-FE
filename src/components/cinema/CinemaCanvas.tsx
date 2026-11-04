@@ -130,9 +130,6 @@ export default function CinemaCanvas({
     return null;
   });
 
-  // Chế độ đèn rạp chiếu (Mặc định true: tắt đèn để xem phim chân thực)
-  const [isDimmed, setIsDimmed] = useState<boolean>(true);
-
   // CHỈ mở Thẻ vé khi user chưa từng có tên hoặc profile
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -239,6 +236,8 @@ export default function CinemaCanvas({
     canControl,
     showSubtitles,
     sendToggleSubtitles,
+    isDimmed,
+    sendToggleDimmed,
     isChatMuted,
     isMicMuted,
     adminToggleControl,
@@ -655,7 +654,7 @@ export default function CinemaCanvas({
         onOpenAddVideo={() => setIsAddVideoModalOpen(true)}
         onOpenProfile={openWardrobe}
         isDimmed={isDimmed}
-        onToggleDimmed={() => setIsDimmed((d) => !d)}
+        onToggleDimmed={sendToggleDimmed}
         showSubtitles={showSubtitles}
         onToggleSubtitles={sendToggleSubtitles}
         quality={quality}

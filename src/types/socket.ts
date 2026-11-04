@@ -51,6 +51,7 @@ export interface RoomState {
   queue?: VideoRequestItem[];
   chatHistory?: ChatMessage[];
   showSubtitles?: boolean;
+  isDimmed?: boolean;
 }
 
 export interface RoomSummary {
@@ -97,6 +98,7 @@ export interface ClientToServerEvents {
   'admin-toggle-mic-mute': (payload: { targetSocketId: string; isMuted?: boolean }) => void;
   'user-mic-status': (payload: { isMicOn: boolean; isSpeaking: boolean }) => void;
   'user-toggle-subtitles': (payload?: { showSubtitles?: boolean }) => void;
+  'user-toggle-dimmed': (payload?: { isDimmed?: boolean }) => void;
   'webrtc-offer': (payload: { to: string; offer: RTCSessionDescriptionInit }) => void;
   'webrtc-answer': (payload: { to: string; answer: RTCSessionDescriptionInit }) => void;
   'webrtc-ice-candidate': (payload: { to: string; candidate: RTCIceCandidateInit }) => void;
@@ -119,6 +121,7 @@ export interface ServerToClientEvents {
   'admin-muted-chat': (payload: { isMuted: boolean }) => void;
   'admin-muted-mic': (payload: { isMuted: boolean }) => void;
   'sync-subtitles': (payload: { showSubtitles: boolean; senderId?: string }) => void;
+  'sync-dimmed': (payload: { isDimmed: boolean; senderId?: string }) => void;
   'webrtc-offer': (payload: { from: string; offer: RTCSessionDescriptionInit }) => void;
   'webrtc-answer': (payload: { from: string; answer: RTCSessionDescriptionInit }) => void;
   'webrtc-ice-candidate': (payload: { from: string; candidate: RTCIceCandidateInit }) => void;

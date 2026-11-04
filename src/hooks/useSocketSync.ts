@@ -60,6 +60,7 @@ export function useSocketSync({
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(false);
+  const [isDimmed, setIsDimmed] = useState<boolean>(true);
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [queue, setQueue] = useState<VideoRequestItem[]>([]);
   const [availableRooms, setAvailableRooms] = useState<RoomSummary[]>([]);
@@ -234,6 +235,9 @@ export function useSocketSync({
       if (typeof state.showSubtitles === 'boolean') {
         setShowSubtitles(state.showSubtitles);
       }
+      if (typeof state.isDimmed === 'boolean') {
+        setIsDimmed(state.isDimmed);
+      }
       if (state.queue) setQueue(state.queue);
       if (Array.isArray(state.chatHistory) && state.chatHistory.length > 0) {
         setChatHistory((prev) => {
@@ -332,6 +336,13 @@ export function useSocketSync({
       console.log(`[useSocketSync] sync-subtitles from server: ${payload.showSubtitles ? 'ON' : 'OFF'}`);
       setShowSubtitles(payload.showSubtitles);
       setRoomState((prev) => (prev ? { ...prev, showSubtitles: payload.showSubtitles } : null));
+    });
+
+    // 6.06 Đồng bộ bật/tắt đèn khán phòng từ server
+    socket.on('sync-dimmed', (payload) => {
+      console.log(`[useSocketSync] sync-dimmed from server: ${payload.isDimmed ? 'TẮT ĐÈN (Dimmed)' : 'BẬT ĐÈN (Bright)'}`);
+      setIsDimmed(payload.isDimmed);
+      setRoomState((prev) => (prev ? { ...prev, isDimmed: payload.isDimmed } : null));
     });
 
     // 6.1 Listen for video requests queue updates
@@ -547,6 +558,18 @@ export function useSocketSync({
     [canControl, showSubtitles]
   );
 
+  const sendToggleDimmed = useCallback(
+    (explicitVal?: boolean) => {
+      const nextVal = typeof explicitVal === 'boolean' ? explicitVal : !isDimmed;
+      setIsDimmed(nextVal);
+      setRoomState((prev) => (prev ? { ...prev, isDimmed: nextVal } : null));
+      if (socketRef.current) {
+        socketRef.current.emit('user-toggle-dimmed', { isDimmed: nextVal });
+      }
+    },
+    [isDimmed]
+  );
+
   const sendChangeVideo = useCallback((videoId: string, videoTitle?: string) => {
     if (!socketRef.current) return;
     socketRef.current.emit('user-change-video', { videoId, videoTitle });
@@ -705,6 +728,8 @@ export function useSocketSync({
     canControl,
     showSubtitles,
     sendToggleSubtitles,
+    isDimmed,
+    sendToggleDimmed,
     isChatMuted,
     isMicMuted,
     adminToggleControl,

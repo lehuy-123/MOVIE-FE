@@ -309,13 +309,18 @@ export function CinemaHUD({
         onTogglePlay?.();
       } else if ((e.key === 'l' || e.key === 'L') && tag !== 'INPUT' && tag !== 'TEXTAREA') {
         e.preventDefault();
+        const hasAdmin = viewers.some((v) => v.isAdmin);
+        if (hasAdmin && !canControl) {
+          showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể bật/tắt đèn rạp!');
+          return;
+        }
         onToggleDimmed?.();
         showToast(isDimmed ? '💡 Đã bật đèn khán phòng' : '🎬 Đã tắt đèn rạp - Trải nghiệm điện ảnh!');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [canControl, onTogglePlay, isDimmed, onToggleDimmed]);
+  }, [canControl, onTogglePlay, isDimmed, onToggleDimmed, viewers]);
 
   // Click ra ngoài popover → đóng
   useEffect(() => {
@@ -498,6 +503,11 @@ export function CinemaHUD({
             id="hud-toggle-lights"
             type="button"
             onClick={() => {
+              const hasAdmin = viewers.some((v) => v.isAdmin);
+              if (hasAdmin && !canControl) {
+                showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể bật/tắt đèn rạp!');
+                return;
+              }
               onToggleDimmed?.();
               showToast(isDimmed ? '💡 Đã bật đèn khán phòng' : '🎬 Đã tắt đèn rạp - Trải nghiệm điện ảnh!');
             }}
