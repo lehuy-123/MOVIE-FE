@@ -100,37 +100,37 @@ export function RoomListModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-sans">
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-white/15 bg-[#0e120e] p-6 shadow-2xl text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md font-sans">
+      <div className="relative w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#0e120e] p-4 sm:p-6 shadow-2xl text-white">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-white/10 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d8f95f] to-[#a3e635] text-black shadow-lg">
-              <DoorOpen className="h-6 w-6" />
+        <div className="flex items-start justify-between border-b border-white/10 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d8f95f] to-[#a3e635] text-black shadow-lg shrink-0">
+              <DoorOpen className="h-5 w-5 sm:h-6 sm:w-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                Hệ Thống Rạp Chiếu Phim WeTube
-                <span className="rounded-full bg-lime-400/20 px-2 py-0.5 text-xs font-bold text-[#d8f95f] border border-lime-400/30">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                Hệ Thống Rạp WeTube
+                <span className="rounded-full bg-lime-400/20 px-2 py-0.5 text-[10px] sm:text-xs font-bold text-[#d8f95f] border border-lime-400/30">
                   {displayRooms.length} Rạp
                 </span>
               </h2>
-              <p className="mt-0.5 text-xs text-white/50">
-                Các user vào chung một rạp sẽ xem cùng một phim & tương tác với nhau theo thời gian thực
+              <p className="mt-0.5 text-[11px] sm:text-xs text-white/50">
+                Các user vào chung một rạp sẽ xem cùng một phim & tương tác thời gian thực
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition"
+            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition shrink-0"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
 
         {/* Danh sách rạp chiếu theo thứ tự */}
-        <div className="mt-4 flex max-h-[420px] flex-col gap-3 overflow-y-auto pr-1">
+        <div className="mt-3 sm:mt-4 flex flex-1 max-h-[60vh] flex-col gap-2.5 sm:gap-3 overflow-y-auto pr-1">
           {displayRooms.map((room) => {
             const isCurrent = room.roomId === currentRoomId;
             return (

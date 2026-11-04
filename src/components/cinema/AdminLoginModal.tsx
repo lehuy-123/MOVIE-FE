@@ -95,8 +95,8 @@ export function AdminLoginModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none font-sans">
-      <div className="relative w-full max-w-md rounded-[28px] border border-amber-400/30 bg-[#12141a]/95 p-6 sm:p-7 shadow-[0_25px_80px_-15px_rgba(245,158,11,0.25)] text-white backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm select-none font-sans">
+      <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto rounded-[28px] border border-amber-400/30 bg-[#12141a]/95 p-5 sm:p-7 shadow-[0_25px_80px_-15px_rgba(245,158,11,0.25)] text-white backdrop-blur-xl">
         {/* Nút đóng */}
         <button
           type="button"

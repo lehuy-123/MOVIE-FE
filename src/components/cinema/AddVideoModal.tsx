@@ -77,7 +77,7 @@ export function AddVideoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in select-none font-sans">
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#0e131b] p-5 sm:p-7 shadow-2xl text-white">
+      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#0e131b] p-4 sm:p-7 shadow-2xl text-white">
         <button
           onClick={onClose}
           className="absolute right-5 top-5 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition"
