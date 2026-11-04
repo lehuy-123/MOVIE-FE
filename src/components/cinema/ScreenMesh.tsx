@@ -167,45 +167,19 @@ export function ScreenMesh({
       }
     }
 
-    // Dynamic cinema ambilight flicker (Hiệu ứng ánh sáng màn chiếu vàng ấm nhẹ, sang trọng)
-    const time = state.clock.getElapsedTime();
-    if (isPlaying) {
-      const flicker = Math.sin(time * 2.8) * 0.15 + Math.cos(time * 5.7) * 0.08;
-      const baseGlow = isDimmed ? 1.6 : 0.9;
-      const baseSpot = isDimmed ? 2.2 : 1.0;
-      const baseAmbient = isDimmed ? 0.6 : 0.25;
+    // Ánh sáng màn chiếu vàng ấm êm dịu, ổn định 60fps (không dao động gây giật khung hình)
+    const targetGlow = isPlaying ? (isDimmed ? 1.6 : 0.9) : 0.5;
+    const targetSpot = isPlaying ? (isDimmed ? 2.2 : 1.0) : 0.8;
+    const targetAmbient = isPlaying ? (isDimmed ? 0.6 : 0.25) : 0.2;
 
-      if (glowLightRef.current) {
-        glowLightRef.current.intensity = baseGlow + flicker;
-      }
-      if (spotGlowRef.current) {
-        spotGlowRef.current.intensity = baseSpot + flicker * 0.3;
-      }
-      if (ambientGlowRef.current) {
-        ambientGlowRef.current.intensity = baseAmbient + flicker * 0.15;
-      }
-    } else {
-      if (glowLightRef.current) {
-        glowLightRef.current.intensity = THREE.MathUtils.lerp(
-          glowLightRef.current.intensity,
-          0.5,
-          0.05
-        );
-      }
-      if (spotGlowRef.current) {
-        spotGlowRef.current.intensity = THREE.MathUtils.lerp(
-          spotGlowRef.current.intensity,
-          0.8,
-          0.05
-        );
-      }
-      if (ambientGlowRef.current) {
-        ambientGlowRef.current.intensity = THREE.MathUtils.lerp(
-          ambientGlowRef.current.intensity,
-          0.2,
-          0.05
-        );
-      }
+    if (glowLightRef.current && Math.abs(glowLightRef.current.intensity - targetGlow) > 0.01) {
+      glowLightRef.current.intensity = THREE.MathUtils.lerp(glowLightRef.current.intensity, targetGlow, 0.08);
+    }
+    if (spotGlowRef.current && Math.abs(spotGlowRef.current.intensity - targetSpot) > 0.01) {
+      spotGlowRef.current.intensity = THREE.MathUtils.lerp(spotGlowRef.current.intensity, targetSpot, 0.08);
+    }
+    if (ambientGlowRef.current && Math.abs(ambientGlowRef.current.intensity - targetAmbient) > 0.01) {
+      ambientGlowRef.current.intensity = THREE.MathUtils.lerp(ambientGlowRef.current.intensity, targetAmbient, 0.08);
     }
   });
 

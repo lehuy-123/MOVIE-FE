@@ -197,24 +197,17 @@ export const CinemaScreenOverlay = forwardRef<
     return () => clearTimeout(timer);
   }, [isPlaying, hasStarted, postCommand]);
 
-  // Periodic handshake / sync query to ensure YouTube iframe delivers currentTime & duration
+  // Relaxed handshake check: only query duration if not yet known; zero command spam during active playback
   useEffect(() => {
     const timer = setInterval(() => {
-      sendListening();
-      if (iframeRef.current) {
+      if (iframeRef.current && durationRef.current <= 0) {
+        sendListening();
+        postCommand('getDuration');
         postCommand('getCurrentTime');
-        if (durationRef.current <= 0) {
-          postCommand('getDuration');
-        }
-        // Đảm bảo phụ đề không tự ý hiện lên khi đang ở chế độ tắt
-        if (!showSubtitles) {
-          postCommand('unloadModule', ['captions']);
-          postCommand('setOption', ['captions', 'track', {}]);
-        }
       }
-    }, 2000);
+    }, 4000);
     return () => clearInterval(timer);
-  }, [sendListening, postCommand, showSubtitles]);
+  }, [sendListening, postCommand]);
 
   // Listen to YouTube player state events sent via postMessage
   useEffect(() => {
@@ -283,10 +276,6 @@ export const CinemaScreenOverlay = forwardRef<
             setLocalPlaying(playing);
             if (stateNum === 1 || stateNum === 2) {
               setHasStarted(true);
-            }
-            if (stateNum === 1) {
-              applySubtitleState(showSubtitles);
-              applyQuality(quality);
             }
             onStateChange?.(stateNum);
 
@@ -608,7 +597,7 @@ export const CinemaScreenOverlay = forwardRef<
           ref={innerRef}
           style={{
             position: 'absolute',
-            pointerEvents: 'auto',
+            pointerEvents: canControl ? 'auto' : 'none',
             width: '1920px',
             height: '1080px',
             backgroundColor: '#000000',
@@ -641,7 +630,7 @@ export const CinemaScreenOverlay = forwardRef<
               border: 0,
               position: 'absolute',
               inset: 0,
-              pointerEvents: 'auto',
+              pointerEvents: canControl ? 'auto' : 'none',
               imageRendering: '-webkit-optimize-contrast',
               WebkitBackfaceVisibility: 'hidden',
               backfaceVisibility: 'hidden',
@@ -654,6 +643,7 @@ export const CinemaScreenOverlay = forwardRef<
               style={{
                 position: 'absolute',
                 inset: 0,
+                pointerEvents: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',

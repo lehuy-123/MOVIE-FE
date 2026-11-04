@@ -95,6 +95,8 @@ export function useSocketSync({
   // Flag to avoid feedback loops from local user actions
   const isPerformingLocalAction = useRef(false);
   const currentVideoIdRef = useRef<string | null>(null);
+  const hasInitializedVideoRef = useRef(false);
+  const lastDriftCorrectionRef = useRef(0);
 
   // Stable references for callbacks to avoid re-connecting WebSocket on every render
   const onVideoChangeRef = useRef(onVideoChange);
@@ -247,22 +249,19 @@ export function useSocketSync({
       }
       onRoomStateChangeRef.current?.(state);
 
-      // Only load new video if video ID changed!
-      if (state.videoId && state.videoId !== currentVideoIdRef.current) {
+      // Only load new video and initial time sync on initial load or when video ID actually changes!
+      const isInitial = !hasInitializedVideoRef.current;
+      if (state.videoId && (state.videoId !== currentVideoIdRef.current || isInitial)) {
+        hasInitializedVideoRef.current = true;
         currentVideoIdRef.current = state.videoId;
         onVideoChangeRef.current?.(state.videoId, state.videoTitle);
         screenRef.current?.loadVideoById(state.videoId, state.timestamp);
-      } else if (state.videoId) {
-        currentVideoIdRef.current = state.videoId;
-      }
 
-      // Apply initial time sync with drift compensation
-      setTimeout(() => {
-        applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
-      }, 500);
-      setTimeout(() => {
-        applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
-      }, 1500);
+        // Apply initial time sync with drift compensation ONLY on first load or video change
+        setTimeout(() => {
+          applyVideoSyncRef.current?.(state.timestamp, state.updatedAt, state.status);
+        }, 800);
+      }
     });
 
     // 2.1 Receive rooms list summary
@@ -280,7 +279,7 @@ export function useSocketSync({
       const elapsed = Math.max(0, (now - payload.updatedAt) / 1000);
       const targetTime = Math.max(0, payload.timestamp + elapsed);
       const cur = screenRef.current?.getCurrentTime() ?? 0;
-      if (cur === 0 || Math.abs(cur - targetTime) > 1.2) {
+      if (cur === 0 || Math.abs(cur - targetTime) > 2.0) {
         screenRef.current?.seekTo(targetTime);
       }
       screenRef.current?.play();
@@ -298,11 +297,8 @@ export function useSocketSync({
 
       // 2. Align timestamp if drift is noticeable
       const cur = screenRef.current?.getCurrentTime() ?? 0;
-      if (Math.abs(cur - payload.timestamp) > 1.2) {
+      if (Math.abs(cur - payload.timestamp) > 2.0) {
         screenRef.current?.seekTo(payload.timestamp);
-        setTimeout(() => {
-          screenRef.current?.pause();
-        }, 150);
       }
     });
 
@@ -419,7 +415,7 @@ export function useSocketSync({
     }
   }, [nickname, avatarColor, gender, isConnected]);
 
-  // Periodic drift check (every 5 seconds) to prevent subtle micro-drift while playing
+  // Periodic drift check (mỗi 12 giây với cooldown 20s) đảm bảo video phát mượt mà liên tục, không bị micro-seek giật hình
   useEffect(() => {
     const driftCheckInterval = setInterval(() => {
       if (!isConnected || !roomState || roomState.status !== 'playing' || !screenRef.current) {
@@ -433,15 +429,16 @@ export function useSocketSync({
 
       if (actualTime > 0) {
         const drift = Math.abs(actualTime - expectedTime);
-        // Ngưỡng 3.5s tránh micro-seek liên tục làm đứt quãng âm thanh / lệch hình
-        if (drift > 3.5) {
+        // Ngưỡng 4.5s và cooldown 20s để triệt tiêu hoàn toàn hiện tượng micro-seek giật lặp lại
+        if (drift > 4.5 && Date.now() - lastDriftCorrectionRef.current > 20000) {
+          lastDriftCorrectionRef.current = Date.now();
           console.log(
             `[useSocketSync] Periodic drift correction: ${drift.toFixed(2)}s drift. Seeking to ${expectedTime.toFixed(2)}s`
           );
           screenRef.current.seekTo(expectedTime);
         }
       }
-    }, 5000);
+    }, 12000);
 
     return () => clearInterval(driftCheckInterval);
   }, [isConnected, roomState, screenRef]);
