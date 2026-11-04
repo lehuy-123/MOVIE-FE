@@ -9,6 +9,8 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
 };
 
@@ -33,6 +35,7 @@ export function useVoiceChat({
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -40,23 +43,139 @@ export function useVoiceChat({
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSpeakingRef = useRef(false);
 
-  // Dọn dẹp một peer connection
+  // Gắn hoặc thay thế audio track một cách an toàn (tránh lỗi duplicate sender/addTrack)
+  const attachLocalStreamToPC = useCallback((pc: RTCPeerConnection, stream: MediaStream | null) => {
+    if (!pc || pc.connectionState === 'closed') return;
+    const audioTrack = stream?.getAudioTracks()[0] || null;
+    const senders = pc.getSenders();
+    const audioSender = senders.find((s) => s.track?.kind === 'audio' || s.track === null);
+
+    if (audioSender) {
+      audioSender.replaceTrack(audioTrack).catch((err) => {
+        console.warn('[VoiceChat] replaceTrack error:', err);
+      });
+    } else if (audioTrack && stream) {
+      try {
+        pc.addTrack(audioTrack, stream);
+      } catch (err) {
+        console.warn('[VoiceChat] addTrack error:', err);
+      }
+    }
+  }, []);
+
+  // Xử lý các ICE Candidate đang chờ trong hàng đợi khi remote description đã sẵn sàng
+  const flushPendingCandidates = useCallback(async (peerId: string, pc: RTCPeerConnection) => {
+    const queue = pendingCandidatesRef.current.get(peerId);
+    if (queue && queue.length > 0) {
+      for (const cand of queue) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (err) {
+          console.warn(`[VoiceChat] Error adding queued candidate from ${peerId}:`, err);
+        }
+      }
+      pendingCandidatesRef.current.delete(peerId);
+    }
+  }, []);
+
+  // Dọn dẹp một peer connection và thẻ audio tương ứng
   const cleanupPeer = useCallback((peerId: string) => {
     const pc = peerConnectionsRef.current.get(peerId);
     if (pc) {
-      pc.close();
+      try {
+        pc.close();
+      } catch {
+        // ignore
+      }
       peerConnectionsRef.current.delete(peerId);
     }
+    pendingCandidatesRef.current.delete(peerId);
+
     const audio = remoteAudiosRef.current.get(peerId);
     if (audio) {
-      audio.pause();
-      audio.srcObject = null;
-      audio.remove();
+      try {
+        audio.pause();
+        audio.srcObject = null;
+        audio.remove();
+      } catch {
+        // ignore
+      }
       remoteAudiosRef.current.delete(peerId);
     }
   }, []);
 
-  // Tắt hẳn mic và dọn dẹp các track local
+  // Tạo hoặc lấy RTCPeerConnection với peer
+  const getOrCreatePeerConnection = useCallback(
+    (peerId: string) => {
+      let pc = peerConnectionsRef.current.get(peerId);
+      if (pc && pc.connectionState !== 'closed' && pc.connectionState !== 'failed') {
+        return pc;
+      }
+
+      pc = new RTCPeerConnection(ICE_SERVERS);
+
+      // Thêm audio transceiver 2 chiều (sendrecv)
+      try {
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
+      } catch {
+        // fallback
+      }
+
+      // Nếu đang có local stream từ trước, gắn ngay vào sender
+      if (localStreamRef.current) {
+        attachLocalStreamToPC(pc, localStreamRef.current);
+      }
+
+      // Xử lý ICE Candidate phát sinh từ local
+      pc.onicecandidate = (event) => {
+        if (event.candidate && socket?.connected) {
+          socket.emit('webrtc-ice-candidate', {
+            to: peerId,
+            candidate: event.candidate.toJSON(),
+          });
+        }
+      };
+
+      // Xử lý khi nhận remote audio track từ người khác trong rạp
+      pc.ontrack = (event) => {
+        console.log(`[VoiceChat] 🔊 Received remote audio track from ${peerId}`);
+        const remoteStream =
+          event.streams && event.streams[0]
+            ? event.streams[0]
+            : new MediaStream([event.track]);
+
+        let audio = remoteAudiosRef.current.get(peerId);
+        if (!audio) {
+          audio = document.createElement('audio');
+          audio.autoplay = true;
+          audio.setAttribute('playsinline', 'true');
+          audio.style.display = 'none';
+          audio.setAttribute('data-peer-id', peerId);
+          document.body.appendChild(audio);
+          remoteAudiosRef.current.set(peerId, audio);
+        }
+
+        audio.srcObject = remoteStream;
+        audio.volume = 1.0;
+        audio.play().catch((err) => {
+          console.warn(`[VoiceChat] Autoplay play() rejected for ${peerId}:`, err);
+        });
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log(`[VoiceChat] PC state with ${peerId}: ${pc?.connectionState}`);
+        if (pc?.connectionState === 'failed') {
+          cleanupPeer(peerId);
+        }
+      };
+
+      peerConnectionsRef.current.set(peerId, pc);
+      return pc;
+    },
+    [socket, cleanupPeer, attachLocalStreamToPC]
+  );
+
+  // Tắt hẳn mic và thu hồi các track
   const turnOffMic = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
@@ -64,6 +183,11 @@ export function useVoiceChat({
       });
       localStreamRef.current = null;
     }
+
+    // Mute transmission on all active peer connections
+    peerConnectionsRef.current.forEach((pc) => {
+      attachLocalStreamToPC(pc, null);
+    });
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -91,80 +215,29 @@ export function useVoiceChat({
     if (socket?.connected) {
       socket.emit('user-mic-status', { isMicOn: false, isSpeaking: false });
     }
-  }, [socket]);
-
-  // Tạo hoặc lấy RTCPeerConnection với peer
-  const getOrCreatePeerConnection = useCallback(
-    (peerId: string) => {
-      let pc = peerConnectionsRef.current.get(peerId);
-      if (pc && pc.connectionState !== 'closed' && pc.connectionState !== 'failed') {
-        return pc;
-      }
-
-      pc = new RTCPeerConnection(ICE_SERVERS);
-
-      // Thêm local audio tracks nếu đang bật mic
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => {
-          pc?.addTrack(track, localStreamRef.current!);
-        });
-      }
-
-      // Xử lý ICE Candidate
-      pc.onicecandidate = (event) => {
-        if (event.candidate && socket?.connected) {
-          socket.emit('webrtc-ice-candidate', {
-            to: peerId,
-            candidate: event.candidate.toJSON(),
-          });
-        }
-      };
-
-      // Xử lý khi nhận remote audio track từ người khác trong rạp
-      pc.ontrack = (event) => {
-        const [remoteStream] = event.streams;
-        if (!remoteStream) return;
-
-        let audio = remoteAudiosRef.current.get(peerId);
-        if (!audio) {
-          audio = new Audio();
-          audio.autoplay = true;
-          // Safari & Chrome autoplay requirement
-          audio.volume = 1.0;
-          remoteAudiosRef.current.set(peerId, audio);
-        }
-        audio.srcObject = remoteStream;
-        audio.play().catch(() => {
-          // Trình duyệt có thể chặn autoplay nếu chưa có user gesture
-        });
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
-          cleanupPeer(peerId);
-        }
-      };
-
-      peerConnectionsRef.current.set(peerId, pc);
-      return pc;
-    },
-    [socket, cleanupPeer]
-  );
+  }, [socket, attachLocalStreamToPC]);
 
   // Bắt đầu theo dõi cường độ âm thanh để phát hiện khi nói (Speaking Level Meter)
   const startAudioMeter = useCallback(
     (stream: MediaStream) => {
       try {
-        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!AudioContextClass) return;
 
-        const ctx = new AudioContextClass();
-        audioContextRef.current = ctx;
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+          audioContextRef.current = new AudioContextClass();
+        }
+        const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
 
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.4;
+        analyser.smoothingTimeConstant = 0.3;
         source.connect(analyser);
         analyserRef.current = analyser;
 
@@ -174,12 +247,15 @@ export function useVoiceChat({
           if (!analyserRef.current || !localStreamRef.current) return;
 
           analyserRef.current.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
+
+          // Phân tích dải tần số giọng nói con người (bins 2 đến 45: ~150Hz đến ~3800Hz)
+          let voiceEnergy = 0;
+          const maxBin = Math.min(dataArray.length, 45);
+          for (let i = 2; i < maxBin; i++) {
+            voiceEnergy += dataArray[i];
           }
-          const average = sum / dataArray.length;
-          const isLoud = average > 14; // Ngưỡng nói chuyện nhạy và tự nhiên
+          const avg = voiceEnergy / (maxBin - 2);
+          const isLoud = avg > 12; // Ngưỡng nói chuyện chuẩn xác, nhạy và tự nhiên
 
           if (isLoud) {
             if (!isSpeakingRef.current) {
@@ -201,7 +277,7 @@ export function useVoiceChat({
               if (socket?.connected) {
                 socket.emit('user-mic-status', { isMicOn: true, isSpeaking: false });
               }
-            }, 450);
+            }, 400);
           }
 
           animationFrameRef.current = requestAnimationFrame(checkVolume);
@@ -250,18 +326,18 @@ export function useVoiceChat({
       // Khởi động đo âm lượng để hiển thị icon đang nói
       startAudioMeter(stream);
 
-      // Gửi offer WebRTC đến tất cả khán giả khác trong phòng
+      // Gắn track vào tất cả peer connection và khởi tạo offer nếu chưa kết nối
       activeUsers.forEach(async (peer) => {
         if (!peer.socketId || peer.socketId === socketId) return;
         try {
           const pc = getOrCreatePeerConnection(peer.socketId);
-          // Gắn track vào peer connection
-          stream.getTracks().forEach((track) => {
-            pc.addTrack(track, stream);
-          });
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket?.emit('webrtc-offer', { to: peer.socketId, offer });
+          attachLocalStreamToPC(pc, stream);
+
+          if (pc.signalingState === 'stable' && pc.connectionState !== 'connected') {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket?.emit('webrtc-offer', { to: peer.socketId, offer });
+          }
         } catch (err) {
           console.warn(`[VoiceChat] Error initiating offer to ${peer.nickname}:`, err);
         }
@@ -282,7 +358,36 @@ export function useVoiceChat({
     activeUsers,
     socketId,
     getOrCreatePeerConnection,
+    attachLocalStreamToPC,
   ]);
+
+  // Tự động kết nối với những người dùng mới vào phòng (Mesh Link Setup)
+  useEffect(() => {
+    if (!socket || !socketId) return;
+
+    activeUsers.forEach(async (peer) => {
+      if (!peer.socketId || peer.socketId === socketId) return;
+
+      // Deterministic initiator rule (tránh xung đột hai bên cùng gửi offer đồng thời)
+      const isInitiator = socketId < peer.socketId;
+      const pc = peerConnectionsRef.current.get(peer.socketId);
+
+      // Nếu chưa có kết nối và là initiator, tạo kết nối và gửi offer ban đầu
+      if (!pc && isInitiator) {
+        try {
+          const newPc = getOrCreatePeerConnection(peer.socketId);
+          if (localStreamRef.current) {
+            attachLocalStreamToPC(newPc, localStreamRef.current);
+          }
+          const offer = await newPc.createOffer();
+          await newPc.setLocalDescription(offer);
+          socket.emit('webrtc-offer', { to: peer.socketId, offer });
+        } catch (err) {
+          console.warn(`[VoiceChat] Error linking with new peer ${peer.nickname}:`, err);
+        }
+      }
+    });
+  }, [activeUsers, socket, socketId, getOrCreatePeerConnection, attachLocalStreamToPC]);
 
   // Lắng nghe sự kiện cấm mic từ Admin
   useEffect(() => {
@@ -323,7 +428,24 @@ export function useVoiceChat({
     }) => {
       try {
         const pc = getOrCreatePeerConnection(from);
+
+        // Xử lý glare: nếu đang trong trạng thái chờ offer từ local
+        const isPolite = socketId ? socketId < from : false;
+        if (pc.signalingState !== 'stable') {
+          if (!isPolite) {
+            console.log(`[VoiceChat] Glare detected, ignoring offer from ${from}`);
+            return;
+          }
+          await pc.setLocalDescription({ type: 'rollback' });
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await flushPendingCandidates(from, pc);
+
+        if (localStreamRef.current) {
+          attachLocalStreamToPC(pc, localStreamRef.current);
+        }
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit('webrtc-answer', { to: from, answer });
@@ -341,8 +463,9 @@ export function useVoiceChat({
     }) => {
       try {
         const pc = peerConnectionsRef.current.get(from);
-        if (pc) {
+        if (pc && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          await flushPendingCandidates(from, pc);
         }
       } catch (err) {
         console.warn(`[VoiceChat] Error handling answer from ${from}:`, err);
@@ -358,8 +481,13 @@ export function useVoiceChat({
     }) => {
       try {
         const pc = peerConnectionsRef.current.get(from);
-        if (pc && pc.remoteDescription) {
+        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          // Lưu vào hàng đợi nếu remote description chưa sẵn sàng
+          const list = pendingCandidatesRef.current.get(from) || [];
+          list.push(candidate);
+          pendingCandidatesRef.current.set(from, list);
         }
       } catch (err) {
         console.warn(`[VoiceChat] Error adding ICE candidate from ${from}:`, err);
@@ -375,7 +503,34 @@ export function useVoiceChat({
       socket.off('webrtc-answer', handleAnswer);
       socket.off('webrtc-ice-candidate', handleCandidate);
     };
-  }, [socket, getOrCreatePeerConnection]);
+  }, [
+    socket,
+    socketId,
+    getOrCreatePeerConnection,
+    flushPendingCandidates,
+    attachLocalStreamToPC,
+  ]);
+
+  // Tự động phát lại audio nếu trình duyệt từng chặn autoplay trước khi có user gesture
+  useEffect(() => {
+    const resumeAudioOnGesture = () => {
+      remoteAudiosRef.current.forEach((audio) => {
+        if (audio.paused && audio.srcObject) {
+          audio.play().catch(() => {});
+        }
+      });
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+    };
+
+    window.addEventListener('click', resumeAudioOnGesture);
+    window.addEventListener('keydown', resumeAudioOnGesture);
+    return () => {
+      window.removeEventListener('click', resumeAudioOnGesture);
+      window.removeEventListener('keydown', resumeAudioOnGesture);
+    };
+  }, []);
 
   // Tự động dọn dẹp peer connections của người dùng đã rời phòng
   useEffect(() => {
@@ -391,12 +546,24 @@ export function useVoiceChat({
   useEffect(() => {
     return () => {
       turnOffMic();
-      peerConnectionsRef.current.forEach((pc) => pc.close());
+      peerConnectionsRef.current.forEach((pc) => {
+        try {
+          pc.close();
+        } catch {
+          // ignore
+        }
+      });
       peerConnectionsRef.current.clear();
+      pendingCandidatesRef.current.clear();
+
       remoteAudiosRef.current.forEach((audio) => {
-        audio.pause();
-        audio.srcObject = null;
-        audio.remove();
+        try {
+          audio.pause();
+          audio.srcObject = null;
+          audio.remove();
+        } catch {
+          // ignore
+        }
       });
       remoteAudiosRef.current.clear();
     };
@@ -410,4 +577,3 @@ export function useVoiceChat({
     turnOffMic,
   };
 }
-
