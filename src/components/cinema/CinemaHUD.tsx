@@ -395,24 +395,26 @@ export function CinemaHUD({
     <div className="pointer-events-none fixed inset-0 z-30 select-none font-sans text-white">
       {/* ═══════════════ TOP BAR ═══════════════ */}
       <header className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-5">
-        {/* Trái: logo + video đang chiếu + vote */}
+        {/* Trái: logo CGV chính thức + chọn rạp */}
         <div className="pointer-events-auto flex max-w-[360px] flex-col gap-3">
           <button
             type="button"
             onClick={onOpenRoomList}
             title="Bấm để xem danh sách rạp và đổi rạp"
-            className={`flex w-fit items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition hover:scale-[1.02] active:scale-[0.98] ${glass}`}
+            className={`flex w-fit items-center gap-3 rounded-2xl py-2 px-3.5 text-left transition hover:scale-[1.02] active:scale-[0.98] ${glass}`}
           >
-            <div className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#e71a0f] via-[#d11309] to-[#990b03] text-white shadow-[0_6px_20px_-3px_rgba(231,26,15,0.75)] border border-[#ff4d4d]/40">
-              <span className="font-black italic tracking-tighter text-[16px] leading-none select-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
-                CGV
+            {/* Logo CGV chính hãng với biểu tượng hoa nở CJ */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/cgv-logo.png"
+              alt="CGV Cinema"
+              className="h-8 sm:h-9 w-auto object-contain drop-shadow-[0_2px_12px_rgba(237,49,36,0.55)] select-none pointer-events-none"
+            />
+            <div className="flex flex-col border-l border-white/15 pl-3">
+              <span className="text-[13px] font-black uppercase tracking-wider text-white drop-shadow-sm">
+                CINEMA
               </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[17px] font-black leading-none tracking-tight text-white drop-shadow-sm">
-                CGV Cinema
-              </span>
-              <span className="mt-1 flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#d8f95f]">
+              <span className="mt-0.5 flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#d8f95f]">
                 {roomName || 'Rạp 01 · IMAX Star'} <ChevronDown className="h-3 w-3" />
               </span>
             </div>

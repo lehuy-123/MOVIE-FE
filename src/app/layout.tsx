@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: 'CGV Cinema',
   description:
     'Rạp chiếu phim ảo 3D CGV Cinema thời gian thực với màn chiếu YouTube 3D tương tác.',
+  icons: {
+    icon: '/cgv-logo.png',
+  },
 };
 
 export default function RootLayout({
