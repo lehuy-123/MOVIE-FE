@@ -33,6 +33,7 @@ export interface CinemaScreenOverlayHandle {
 export interface CinemaScreenOverlayProps {
   videoId: string;
   isPlaying?: boolean;
+  isDimmed?: boolean;
   canControl?: boolean;
   showSubtitles?: boolean;
   quality?: string;
@@ -50,7 +51,7 @@ export interface CinemaScreenOverlayProps {
 export const CinemaScreenOverlay = forwardRef<
   CinemaScreenOverlayHandle,
   CinemaScreenOverlayProps
->(({ videoId, isPlaying = true, canControl = true, showSubtitles = false, quality = 'hd1080', onQualityChange, onToggleSubtitles, onReady, onStateChange, onTogglePlay, onPlay, onPause, onSeek, onOpenAddVideo }, ref) => {
+>(({ videoId, isPlaying = true, isDimmed = true, canControl = true, showSubtitles = false, quality = 'hd1080', onQualityChange, onToggleSubtitles, onReady, onStateChange, onTogglePlay, onPlay, onPause, onSeek, onOpenAddVideo }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -634,6 +635,21 @@ export const CinemaScreenOverlay = forwardRef<
               imageRendering: '-webkit-optimize-contrast',
               WebkitBackfaceVisibility: 'hidden',
               backfaceVisibility: 'hidden',
+            }}
+          />
+
+          {/* Hiệu ứng ánh sáng máy chiếu chiếu mờ lên màn hình khi BẬT ĐÈN KHÁN PHÒNG (Biến mất hoàn toàn khi TẮT ĐÈN) */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+              zIndex: 3,
+              opacity: isDimmed ? 0 : 1,
+              transition: 'opacity 0.85s cubic-bezier(0.4, 0, 0.2, 1)',
+              background:
+                'radial-gradient(ellipse 90% 80% at 50% 50%, rgba(255, 252, 240, 0.22) 0%, rgba(255, 246, 228, 0.15) 35%, rgba(240, 245, 255, 0.07) 70%, rgba(200, 220, 255, 0) 100%), linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
+              mixBlendMode: 'screen',
             }}
           />
 

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from '@react-three/drei';
 import { ScreenMesh } from './ScreenMesh';
 import { ExitSign } from './ExitSign';
+import { CinemaProjectorBeam } from './CinemaProjectorBeam';
 import { WeTubeSeatGrid, OccupiedSeatInfo } from './WeTubeSeatGrid';
 import { WeTubeStage } from './WeTubeStage';
 import { CinemaRoom } from './CinemaRoom';
@@ -171,6 +172,9 @@ export function CinemaScene({
 
       {/* Biển EXIT đèn LED khẩn cấp và cửa thoát hiểm bên trái màn chiếu */}
       <ExitSign isDimmed={isDimmed} />
+
+      {/* Hiệu ứng tia sáng máy chiếu từ buồng chiếu phía sau hắt lên màn hình khi BẬT ĐÈN */}
+      <CinemaProjectorBeam isDimmed={isDimmed} />
     </>
   );
 }

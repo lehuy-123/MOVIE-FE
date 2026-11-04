@@ -667,6 +667,7 @@ export default function CinemaCanvas({
         ref={screenRef}
         videoId={videoId}
         isPlaying={roomState?.status !== 'paused'}
+        isDimmed={isDimmed}
         canControl={canControl}
         showSubtitles={showSubtitles}
         quality={quality}
