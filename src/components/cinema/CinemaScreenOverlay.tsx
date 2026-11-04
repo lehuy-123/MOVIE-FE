@@ -18,6 +18,9 @@ export interface CinemaScreenOverlayHandle {
   getCurrentTime: () => number;
   getDuration: () => number;
   setVolume: (volume: number) => void;
+  setSubtitles?: (enable: boolean) => void;
+  setPlaybackQuality?: (quality: string) => void;
+  getPlaybackQuality?: () => string;
   getPlayer: () => any;
   updateTransform: (
     outerTransform: string,
@@ -31,6 +34,10 @@ export interface CinemaScreenOverlayProps {
   videoId: string;
   isPlaying?: boolean;
   canControl?: boolean;
+  showSubtitles?: boolean;
+  quality?: string;
+  onQualityChange?: (quality: string) => void;
+  onToggleSubtitles?: (show: boolean) => void;
   onReady?: (controls: YouTubePlayerControls) => void;
   onStateChange?: (state: number) => void;
   onTogglePlay?: () => void;
@@ -43,7 +50,7 @@ export interface CinemaScreenOverlayProps {
 export const CinemaScreenOverlay = forwardRef<
   CinemaScreenOverlayHandle,
   CinemaScreenOverlayProps
->(({ videoId, isPlaying = true, canControl = true, onReady, onStateChange, onTogglePlay, onPlay, onPause, onSeek, onOpenAddVideo }, ref) => {
+>(({ videoId, isPlaying = true, canControl = true, showSubtitles = false, quality = 'hd1080', onQualityChange, onToggleSubtitles, onReady, onStateChange, onTogglePlay, onPlay, onPause, onSeek, onOpenAddVideo }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -53,6 +60,21 @@ export const CinemaScreenOverlay = forwardRef<
   const [localPlaying, setLocalPlaying] = useState(isPlaying);
   const [hasStarted, setHasStarted] = useState(false);
   const [errorCode, setErrorCode] = useState<number | null>(null);
+  const [currentQuality, setCurrentQuality] = useState(quality);
+  const currentQualityRef = useRef(quality);
+  currentQualityRef.current = currentQuality;
+
+  // Helper to build YouTube Embed URL with JS API, origin and playsinline
+  const buildEmbedUrl = useCallback((id: string, start = 0) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const originParam = origin ? `&origin=${encodeURIComponent(origin)}&widget_referrer=${encodeURIComponent(origin)}` : '';
+    const startParam = start > 0 ? `&start=${Math.floor(start)}` : '';
+    return `https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=1&mute=0&controls=1&rel=0&playsinline=1&iv_load_policy=3&vq=hd1080&cc_load_policy=0${startParam}${originParam}`;
+  }, []);
+
+  // Stable iframe src that NEVER changes on quality or subtitles change (prevents iframe reload)
+  const [embedSrc, setEmbedSrc] = useState(() => buildEmbedUrl(videoId, 0));
+
   const currentTimeRef = useRef(0);
   const durationRef = useRef(0);
   const isProgrammaticSeekRef = useRef(false);
@@ -61,14 +83,6 @@ export const CinemaScreenOverlay = forwardRef<
   const lastInnerRef = useRef('');
   const lastPerspectiveRef = useRef('');
   const lastVisibleRef = useRef(true);
-
-  // Helper to build YouTube Embed URL with JS API, origin and playsinline
-  const buildEmbedUrl = useCallback((id: string, start = 0) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const originParam = origin ? `&origin=${encodeURIComponent(origin)}&widget_referrer=${encodeURIComponent(origin)}` : '';
-    const startParam = start > 0 ? `&start=${Math.floor(start)}` : '';
-    return `https://www.youtube.com/embed/${id}?enablejsapi=1&autoplay=1&mute=0&controls=1&rel=0&playsinline=1&iv_load_policy=3${startParam}${originParam}`;
-  }, []);
 
   // Send command to YouTube iframe via standard postMessage
   const postCommand = useCallback((func: string, args: (string | number | boolean | Record<string, any>)[] = []) => {
@@ -98,6 +112,57 @@ export const CinemaScreenOverlay = forwardRef<
     }
   }, []);
 
+  // Ép luồng phát đạt độ phân giải (1080p, 4K, 720p hoặc Tự động) hoàn toàn mượt mà qua API, không reload iframe
+  const applyQuality = useCallback((qualityLevel: string = 'hd1080') => {
+    try {
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        if (qualityLevel === 'auto') {
+          postCommand('setPlaybackQuality', ['default']);
+          postCommand('setPlaybackQualityRange', ['default', 'highres']);
+        } else {
+          postCommand('setPlaybackQuality', [qualityLevel]);
+          postCommand('setPlaybackQualityRange', [qualityLevel, qualityLevel]);
+          postCommand('setOption', ['quality', 'quality', qualityLevel]);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [postCommand]);
+
+  useEffect(() => {
+    if (hasStarted) {
+      applyQuality(quality);
+    }
+  }, [quality, hasStarted, applyQuality]);
+
+  // Bật hoặc tắt phụ đề YouTube cho màn chiếu theo trạng thái đồng bộ
+  const applySubtitleState = useCallback(
+    (enabled: boolean) => {
+      try {
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+          if (enabled) {
+            postCommand('loadModule', ['captions']);
+            postCommand('setOption', ['captions', 'track', { languageCode: 'vi' }]);
+            postCommand('setOption', ['captions', 'reload', true]);
+          } else {
+            postCommand('unloadModule', ['captions']);
+            postCommand('setOption', ['captions', 'track', {}]);
+            postCommand('setOption', ['cc', 'track', {}]);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [postCommand]
+  );
+
+  // Đồng bộ trạng thái phụ đề ngay khi prop showSubtitles thay đổi
+  useEffect(() => {
+    applySubtitleState(showSubtitles);
+  }, [showSubtitles, applySubtitleState]);
+
   // Update video when prop changes
   useEffect(() => {
     if (videoId && videoId !== currentId) {
@@ -105,16 +170,16 @@ export const CinemaScreenOverlay = forwardRef<
       setHasStarted(false);
       setErrorCode(null);
       currentTimeRef.current = 0;
+      const targetUrl = buildEmbedUrl(videoId, 0);
+      setEmbedSrc(targetUrl);
       postCommand('loadVideoById', [{ videoId, startSeconds: 0 }]);
       postCommand('playVideo');
-      if (iframeRef.current) {
-        const targetUrl = buildEmbedUrl(videoId, 0);
-        if (iframeRef.current.src !== targetUrl) {
-          iframeRef.current.src = targetUrl;
-        }
-      }
+      setTimeout(() => {
+        applyQuality(quality);
+        applySubtitleState(showSubtitles);
+      }, 500);
     }
-  }, [videoId, currentId, buildEmbedUrl, postCommand]);
+  }, [videoId, currentId, buildEmbedUrl, postCommand, applyQuality, quality, applySubtitleState, showSubtitles]);
 
   // Sync prop isPlaying with local YouTube player
   useEffect(() => {
@@ -141,10 +206,15 @@ export const CinemaScreenOverlay = forwardRef<
         if (durationRef.current <= 0) {
           postCommand('getDuration');
         }
+        // Đảm bảo phụ đề không tự ý hiện lên khi đang ở chế độ tắt
+        if (!showSubtitles) {
+          postCommand('unloadModule', ['captions']);
+          postCommand('setOption', ['captions', 'track', {}]);
+        }
       }
-    }, 1000);
+    }, 2000);
     return () => clearInterval(timer);
-  }, [sendListening, postCommand]);
+  }, [sendListening, postCommand, showSubtitles]);
 
   // Listen to YouTube player state events sent via postMessage
   useEffect(() => {
@@ -164,12 +234,27 @@ export const CinemaScreenOverlay = forwardRef<
           sendListening();
           postCommand('playVideo');
           postCommand('getCurrentTime');
+          applyQuality(quality);
+          applySubtitleState(showSubtitles);
           setHasStarted(true);
           setErrorCode(null);
         } else if (data.event === 'onError') {
           console.warn('[CinemaScreenOverlay] YouTube player error:', data.info);
           setErrorCode(Number(data.info) || 150);
+        } else if (data.event === 'onPlaybackQualityChange' && data.info) {
+          console.log('[CinemaScreenOverlay] YouTube quality changed to:', data.info);
+          setCurrentQuality(data.info);
+        } else if (data.event === 'onCaptionsChange') {
+          const info = data.info;
+          const isNowOn = Boolean(info && info !== 'none' && info !== '');
+          if (canControl && onToggleSubtitles && isNowOn !== showSubtitles) {
+            console.log('[CinemaScreenOverlay] Subtitle changed inside YouTube iframe to:', isNowOn);
+            onToggleSubtitles(isNowOn);
+          }
         } else if ((data.event === 'infoDelivery' || data.event === 'initialDelivery') && data.info) {
+          if (data.info.playbackQuality) {
+            setCurrentQuality(data.info.playbackQuality);
+          }
           if (typeof data.info.duration === 'number' && data.info.duration > 0) {
             durationRef.current = data.info.duration;
           }
@@ -199,16 +284,29 @@ export const CinemaScreenOverlay = forwardRef<
             if (stateNum === 1 || stateNum === 2) {
               setHasStarted(true);
             }
+            if (stateNum === 1) {
+              applySubtitleState(showSubtitles);
+              applyQuality(quality);
+            }
             onStateChange?.(stateNum);
 
             // User clicked pause or play directly on YouTube player
-            if (!isProgrammaticPlaybackRef.current && hasStarted && canControl) {
-              if (stateNum === 2 && isPlaying) {
-                console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe');
-                onPause?.(currentTimeRef.current);
-              } else if (stateNum === 1 && !isPlaying) {
-                console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe');
-                onPlay?.(currentTimeRef.current);
+            if (!isProgrammaticPlaybackRef.current && hasStarted) {
+              if (canControl) {
+                if (stateNum === 2 && isPlaying) {
+                  console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe');
+                  onPause?.(currentTimeRef.current);
+                } else if (stateNum === 1 && !isPlaying) {
+                  console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe');
+                  onPlay?.(currentTimeRef.current);
+                }
+              } else {
+                // Khán giả bấm nhầm vào video: tự động duy trì trạng thái chiếu của phòng
+                if (stateNum === 2 && isPlaying) {
+                  postCommand('playVideo');
+                } else if (stateNum === 1 && !isPlaying) {
+                  postCommand('pauseVideo');
+                }
               }
             }
           }
@@ -221,13 +319,21 @@ export const CinemaScreenOverlay = forwardRef<
           }
           onStateChange?.(stateNum);
 
-          if (!isProgrammaticPlaybackRef.current && hasStarted && canControl) {
-            if (stateNum === 2 && isPlaying) {
-              console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe (onStateChange)');
-              onPause?.(currentTimeRef.current);
-            } else if (stateNum === 1 && !isPlaying) {
-              console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe (onStateChange)');
-              onPlay?.(currentTimeRef.current);
+          if (!isProgrammaticPlaybackRef.current && hasStarted) {
+            if (canControl) {
+              if (stateNum === 2 && isPlaying) {
+                console.log('[CinemaScreenOverlay] User paused directly on YouTube iframe (onStateChange)');
+                onPause?.(currentTimeRef.current);
+              } else if (stateNum === 1 && !isPlaying) {
+                console.log('[CinemaScreenOverlay] User resumed directly on YouTube iframe (onStateChange)');
+                onPlay?.(currentTimeRef.current);
+              }
+            } else {
+              if (stateNum === 2 && isPlaying) {
+                postCommand('playVideo');
+              } else if (stateNum === 1 && !isPlaying) {
+                postCommand('pauseVideo');
+              }
             }
           }
         }
@@ -238,12 +344,23 @@ export const CinemaScreenOverlay = forwardRef<
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [onStateChange, postCommand, sendListening, onSeek, onPlay, onPause, isPlaying, hasStarted, canControl]);
+  }, [onStateChange, postCommand, sendListening, onSeek, onPlay, onPause, isPlaying, hasStarted, canControl, showSubtitles, applySubtitleState, onToggleSubtitles, quality, applyQuality, onQualityChange]);
 
   const handleIframeLoad = useCallback(() => {
     sendListening();
     postCommand('playVideo');
     postCommand('getCurrentTime');
+    setTimeout(() => {
+      applyQuality(quality);
+      applySubtitleState(showSubtitles);
+    }, 300);
+    setTimeout(() => {
+      applyQuality(quality);
+      applySubtitleState(showSubtitles);
+    }, 1000);
+    setTimeout(() => {
+      applyQuality(quality);
+    }, 2500);
 
     if (onReady) {
       const controls: YouTubePlayerControls = {
@@ -253,6 +370,7 @@ export const CinemaScreenOverlay = forwardRef<
             isProgrammaticSeekRef.current = true;
             postCommand('seekTo', [startSeconds, true]);
             postCommand('playVideo');
+            applyQuality(quality);
             setTimeout(() => {
               isProgrammaticSeekRef.current = false;
             }, 1200);
@@ -260,9 +378,8 @@ export const CinemaScreenOverlay = forwardRef<
             setCurrentId(id);
             setHasStarted(false);
             currentTimeRef.current = startSeconds;
-            if (iframeRef.current) {
-              iframeRef.current.src = buildEmbedUrl(id, startSeconds);
-            }
+            const targetUrl = buildEmbedUrl(id, startSeconds);
+            setEmbedSrc(targetUrl);
           }
         },
         play: () => {
@@ -293,7 +410,7 @@ export const CinemaScreenOverlay = forwardRef<
 
       onReady(controls);
     }
-  }, [currentId, onReady, postCommand, sendListening, buildEmbedUrl]);
+  }, [currentId, onReady, postCommand, sendListening, buildEmbedUrl, showSubtitles, applySubtitleState, quality, applyQuality]);
 
   // Expose imperative handle for external control
   useImperativeHandle(
@@ -322,12 +439,8 @@ export const CinemaScreenOverlay = forwardRef<
         isProgrammaticSeekRef.current = true;
         postCommand('loadVideoById', [{ videoId: id, startSeconds: Math.floor(startSeconds) }]);
         postCommand('playVideo');
-        if (iframeRef.current) {
-          const targetUrl = buildEmbedUrl(id, startSeconds);
-          if (iframeRef.current.src !== targetUrl) {
-            iframeRef.current.src = targetUrl;
-          }
-        }
+        const targetUrl = buildEmbedUrl(id, startSeconds);
+        setEmbedSrc(targetUrl);
         setTimeout(() => {
           isProgrammaticSeekRef.current = false;
         }, 1200);
@@ -360,10 +473,19 @@ export const CinemaScreenOverlay = forwardRef<
       getCurrentTime: () => currentTimeRef.current,
       getDuration: () => durationRef.current,
       setVolume: (vol: number) => postCommand('setVolume', [vol]),
+      setSubtitles: (enable: boolean) => applySubtitleState(enable),
+      setPlaybackQuality: (q: string) => applyQuality(q),
+      getPlaybackQuality: () => currentQualityRef.current,
       getPlayer: () => ({
         mute: () => postCommand('mute'),
         unMute: () => postCommand('unMute'),
         isMuted: () => false,
+        setSubtitles: (enable: boolean) => applySubtitleState(enable),
+        setPlaybackQuality: (q: string) => applyQuality(q),
+        getPlaybackQuality: () => currentQualityRef.current,
+        loadModule: (mod: string) => postCommand('loadModule', [mod]),
+        unloadModule: (mod: string) => postCommand('unloadModule', [mod]),
+        setOption: (mod: string, opt: string, val: any) => postCommand('setOption', [mod, opt, val]),
         playVideo: () => {
           isProgrammaticPlaybackRef.current = true;
           setLocalPlaying(true);
@@ -398,6 +520,7 @@ export const CinemaScreenOverlay = forwardRef<
             isProgrammaticSeekRef.current = true;
             postCommand('seekTo', [0, true]);
             postCommand('playVideo');
+            applyQuality(quality);
             setTimeout(() => {
               isProgrammaticSeekRef.current = false;
             }, 1200);
@@ -405,9 +528,8 @@ export const CinemaScreenOverlay = forwardRef<
             setCurrentId(vid);
             setHasStarted(false);
             currentTimeRef.current = 0;
-            if (iframeRef.current) {
-              iframeRef.current.src = buildEmbedUrl(vid, 0);
-            }
+            const targetUrl = buildEmbedUrl(vid, 0);
+            setEmbedSrc(targetUrl);
           }
         },
         cueVideoById: () => {},
@@ -450,7 +572,7 @@ export const CinemaScreenOverlay = forwardRef<
         }
       },
     }),
-    [currentId, localPlaying, postCommand, buildEmbedUrl]
+    [currentId, localPlaying, postCommand, buildEmbedUrl, showSubtitles, applySubtitleState, quality, applyQuality]
   );
 
   return (
@@ -474,6 +596,9 @@ export const CinemaScreenOverlay = forwardRef<
           width: '100%',
           height: '100%',
           transformStyle: 'preserve-3d',
+          WebkitTransformStyle: 'preserve-3d',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
           pointerEvents: 'none',
           willChange: 'transform',
         }}
@@ -489,14 +614,22 @@ export const CinemaScreenOverlay = forwardRef<
             backgroundColor: '#000000',
             borderRadius: '4px',
             overflow: 'hidden',
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.65)',
+            boxSizing: 'border-box',
+            border: '1px solid rgba(254, 215, 170, 0.22)',
+            boxShadow:
+              '0 0 16px rgba(254, 215, 170, 0.12), 0 0 36px rgba(251, 191, 36, 0.05), 0 8px 30px rgba(0, 0, 0, 0.85)',
             transformOrigin: '50% 50%',
             willChange: 'transform',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden',
+            transformStyle: 'preserve-3d',
+            WebkitTransformStyle: 'preserve-3d',
+            imageRendering: '-webkit-optimize-contrast',
           }}
         >
           <iframe
             ref={iframeRef}
-            src={buildEmbedUrl(currentId, 0)}
+            src={embedSrc}
             title="3D Cinema YouTube Screen"
             onLoad={handleIframeLoad}
             referrerPolicy="strict-origin-when-cross-origin"
@@ -508,7 +641,10 @@ export const CinemaScreenOverlay = forwardRef<
               border: 0,
               position: 'absolute',
               inset: 0,
-              pointerEvents: canControl ? 'auto' : 'none',
+              pointerEvents: 'auto',
+              imageRendering: '-webkit-optimize-contrast',
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
             }}
           />
 

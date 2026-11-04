@@ -50,6 +50,7 @@ export interface RoomState {
   skipVotes: string[]; // List of socketIds who voted to skip
   queue?: VideoRequestItem[];
   chatHistory?: ChatMessage[];
+  showSubtitles?: boolean;
 }
 
 export interface RoomSummary {
@@ -95,6 +96,7 @@ export interface ClientToServerEvents {
   'admin-toggle-chat-mute': (payload: { targetSocketId: string; isMuted?: boolean }) => void;
   'admin-toggle-mic-mute': (payload: { targetSocketId: string; isMuted?: boolean }) => void;
   'user-mic-status': (payload: { isMicOn: boolean; isSpeaking: boolean }) => void;
+  'user-toggle-subtitles': (payload?: { showSubtitles?: boolean }) => void;
   'webrtc-offer': (payload: { to: string; offer: RTCSessionDescriptionInit }) => void;
   'webrtc-answer': (payload: { to: string; answer: RTCSessionDescriptionInit }) => void;
   'webrtc-ice-candidate': (payload: { to: string; candidate: RTCIceCandidateInit }) => void;
@@ -116,6 +118,7 @@ export interface ServerToClientEvents {
   'skip-votes-updated': (votes: { count: number; total: number; voters: string[] }) => void;
   'admin-muted-chat': (payload: { isMuted: boolean }) => void;
   'admin-muted-mic': (payload: { isMuted: boolean }) => void;
+  'sync-subtitles': (payload: { showSubtitles: boolean; senderId?: string }) => void;
   'webrtc-offer': (payload: { from: string; offer: RTCSessionDescriptionInit }) => void;
   'webrtc-answer': (payload: { from: string; answer: RTCSessionDescriptionInit }) => void;
   'webrtc-ice-candidate': (payload: { from: string; candidate: RTCIceCandidateInit }) => void;

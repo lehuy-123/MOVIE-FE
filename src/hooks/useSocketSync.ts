@@ -59,6 +59,7 @@ export function useSocketSync({
   const [isConnected, setIsConnected] = useState(false);
   const [socketId, setSocketId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [showSubtitles, setShowSubtitles] = useState<boolean>(false);
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [queue, setQueue] = useState<VideoRequestItem[]>([]);
   const [availableRooms, setAvailableRooms] = useState<RoomSummary[]>([]);
@@ -228,6 +229,9 @@ export function useSocketSync({
       console.log('[useSocketSync] Received full room state:', state);
       setRoomState(state);
       setUsers(state.users);
+      if (typeof state.showSubtitles === 'boolean') {
+        setShowSubtitles(state.showSubtitles);
+      }
       if (state.queue) setQueue(state.queue);
       if (Array.isArray(state.chatHistory) && state.chatHistory.length > 0) {
         setChatHistory((prev) => {
@@ -325,6 +329,13 @@ export function useSocketSync({
       currentVideoIdRef.current = payload.videoId;
       onVideoChangeRef.current?.(payload.videoId, payload.videoTitle);
       screenRef.current?.loadVideoById(payload.videoId, 0);
+    });
+
+    // 6.05 Đồng bộ bật/tắt phụ đề video từ phòng chiếu
+    socket.on('sync-subtitles', (payload) => {
+      console.log(`[useSocketSync] sync-subtitles from server: ${payload.showSubtitles ? 'ON' : 'OFF'}`);
+      setShowSubtitles(payload.showSubtitles);
+      setRoomState((prev) => (prev ? { ...prev, showSubtitles: payload.showSubtitles } : null));
     });
 
     // 6.1 Listen for video requests queue updates
@@ -523,6 +534,22 @@ export function useSocketSync({
     socketRef.current.emit('admin-toggle-mic-mute', { targetSocketId, isMuted });
   }, []);
 
+  const sendToggleSubtitles = useCallback(
+    (explicitVal?: boolean) => {
+      if (!canControl) {
+        console.warn('[useSocketSync] Permission denied: user cannot toggle subtitles.');
+        return;
+      }
+      const nextVal = typeof explicitVal === 'boolean' ? explicitVal : !showSubtitles;
+      setShowSubtitles(nextVal);
+      setRoomState((prev) => (prev ? { ...prev, showSubtitles: nextVal } : null));
+      if (socketRef.current) {
+        socketRef.current.emit('user-toggle-subtitles', { showSubtitles: nextVal });
+      }
+    },
+    [canControl, showSubtitles]
+  );
+
   const sendChangeVideo = useCallback((videoId: string, videoTitle?: string) => {
     if (!socketRef.current) return;
     socketRef.current.emit('user-change-video', { videoId, videoTitle });
@@ -679,6 +706,8 @@ export function useSocketSync({
     isHost,
     isAdmin: isHost,
     canControl,
+    showSubtitles,
+    sendToggleSubtitles,
     isChatMuted,
     isMicMuted,
     adminToggleControl,

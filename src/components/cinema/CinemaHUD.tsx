@@ -34,6 +34,8 @@ import {
   Play,
   Pause,
   Lock,
+  Subtitles,
+  SlidersHorizontal,
   Shirt,
   Coffee,
   Lightbulb,
@@ -68,6 +70,10 @@ interface CinemaHUDProps {
   suggester?: string;
   isPlaying?: boolean;
   canControl?: boolean;
+  showSubtitles?: boolean;
+  onToggleSubtitles?: () => void;
+  quality?: string;
+  onSelectQuality?: (quality: string) => void;
   onTogglePlay?: () => void;
   onSeek?: (seconds: number) => void;
   onToggleUserControl?: (targetSocketId: string, canControl: boolean) => void;
@@ -189,6 +195,10 @@ export function CinemaHUD({
   suggester = 'Phòng chiếu',
   isPlaying = true,
   canControl = true,
+  showSubtitles = false,
+  onToggleSubtitles,
+  quality = 'hd1080',
+  onSelectQuality,
   onTogglePlay,
   onSeek,
   onToggleUserControl,
@@ -235,6 +245,7 @@ export function CinemaHUD({
   const [dockOpen, setDockOpen] = useState(true);
   const [dockPanel, setDockPanel] = useState<null | 'chat' | 'react'>(null);
   const [bottomPanel, setBottomPanel] = useState<null | 'layout' | 'viewers'>(null);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [hearts, setHearts] = useState<{ id: number; dx: number }[]>([]);
 
@@ -328,6 +339,7 @@ export function CinemaHUD({
         setDockPanel(null);
         setBottomPanel(null);
         setShowEmoji(false);
+        setShowQualityMenu(false);
       }
     };
     window.addEventListener('pointerdown', onDown);
@@ -1080,6 +1092,95 @@ export function CinemaHUD({
               {!canControl && <Lock className="ml-1 h-2.5 w-2.5 text-white/35" />}
             </div>
             <span className="text-[10px] tabular-nums font-mono text-white/40">{formatTime(time.dur)}</span>
+          </div>
+
+          {/* Bật / Tắt phụ đề đồng bộ cả khán phòng */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!canControl) {
+                showToast('🔒 Chỉ Admin hoặc người được cấp quyền mới có thể bật/tắt phụ đề!');
+                return;
+              }
+              onToggleSubtitles?.();
+              showToast(
+                showSubtitles
+                  ? '💬 Đã tắt phụ đề cho cả phòng chiếu'
+                  : '💬 Đã bật phụ đề đồng bộ cho cả phòng chiếu'
+              );
+            }}
+            className={`${iconBtn} ${
+              showSubtitles
+                ? 'border border-[#d8f95f]/50 bg-[#d8f95f]/20 !text-[#d8f95f]'
+                : 'text-white/45 hover:text-white'
+            } ${!canControl ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={
+              canControl
+                ? showSubtitles
+                  ? '💬 Phụ đề phòng: Đang BẬT (Bấm để TẮT đồng bộ cho cả rạp)'
+                  : '💬 Phụ đề phòng: Đang TẮT (Bấm để BẬT đồng bộ cho cả rạp)'
+                : showSubtitles
+                ? '💬 Phụ đề phòng chiếu: Đang BẬT'
+                : '💬 Phụ đề phòng chiếu: Đang TẮT'
+            }
+          >
+            <Subtitles className="h-4 w-4" />
+          </button>
+
+          {/* Menu Chọn Độ Phân Giải (1080p, 4K, 720p, Tự động) */}
+          <div data-hud-popover className="relative">
+            {showQualityMenu && (
+              <div
+                className={`absolute bottom-full right-0 mb-3 w-52 rounded-2xl p-2 ${glass} z-50 shadow-[0_12px_45px_rgba(0,0,0,0.85)]`}
+              >
+                <div className="mb-1.5 px-2.5 py-1 text-[11px] font-bold text-white/50 uppercase tracking-wider border-b border-white/10">
+                  Độ Phân Giải Màn Chiếu
+                </div>
+                {[
+                  { id: 'hd1080', label: '1080p Full HD', desc: 'Sắc nét chuẩn điện ảnh (Khuyên dùng)' },
+                  { id: 'highres', label: '4K / 2K Ultra HD', desc: 'Chất lượng cao nhất' },
+                  { id: 'hd720', label: '720p HD', desc: 'Mượt mà cho mạng yếu' },
+                  { id: 'auto', label: 'Tự động (Auto)', desc: 'Theo đường truyền' },
+                ].map((item) => {
+                  const isSelected = quality === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectQuality?.(item.id);
+                        setShowQualityMenu(false);
+                        showToast(`🎬 Đã chuyển sang độ phân giải: ${item.label}`);
+                      }}
+                      className={`flex w-full flex-col items-start rounded-xl px-2.5 py-1.5 text-left transition ${
+                        isSelected
+                          ? 'bg-[#d8f95f]/20 text-[#d8f95f] font-bold'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full text-xs">
+                        <span>{item.label}</span>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-[#d8f95f]" />}
+                      </div>
+                      <span className="text-[10px] text-white/40 font-normal">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowQualityMenu((s) => !s)}
+              className={`${iconBtn} px-2 !w-auto text-[11px] font-bold tracking-wider ${
+                showQualityMenu || quality === 'hd1080' || quality === 'highres'
+                  ? 'border border-[#d8f95f]/40 bg-[#d8f95f]/15 text-[#d8f95f]'
+                  : 'text-white/70 hover:text-white'
+              }`}
+              title="Độ phân giải video (1080p, 4K, 720p...)"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />
+              {quality === 'highres' ? '4K' : quality === 'hd1080' ? '1080p' : quality === 'hd720' ? '720p' : 'Auto'}
+            </button>
           </div>
 
           <button

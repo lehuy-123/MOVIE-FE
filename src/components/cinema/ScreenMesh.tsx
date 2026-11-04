@@ -48,6 +48,43 @@ function getObjectCSSMatrix(matrix: THREE.Matrix4, factor: number) {
   return getCSSMatrix(matrix, objectMultipliers(factor), 'translate(-50%,-50%)');
 }
 
+/** Tạo texture vệt sáng hào quang dịu mắt toả ra xung quanh 4 cạnh màn chiếu */
+function useScreenHaloTexture(): THREE.CanvasTexture | null {
+  return useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const w = 512;
+    const h = 288;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Vẽ hào quang toả sáng vàng ấm dịu mắt từ mép màn chiếu ra ngoài
+    const grad = ctx.createRadialGradient(
+      w / 2,
+      h / 2,
+      Math.min(w, h) * 0.28,
+      w / 2,
+      h / 2,
+      Math.max(w, h) * 0.52
+    );
+    grad.addColorStop(0, 'rgba(254, 215, 170, 0.32)');
+    grad.addColorStop(0.35, 'rgba(251, 191, 36, 0.14)');
+    grad.addColorStop(0.7, 'rgba(217, 119, 6, 0.05)');
+    grad.addColorStop(1, 'rgba(180, 83, 9, 0)');
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+}
+
 /** Tạo texture chữ 'LEHUY' màu bạc trắng in nổi trên viền dưới màn chiếu */
 function useBrandingTexture(): THREE.CanvasTexture | null {
   return useMemo(() => {
@@ -93,6 +130,7 @@ export function ScreenMesh({
   const spotGlowRef = useRef<THREE.SpotLight>(null);
   const ambientGlowRef = useRef<THREE.PointLight>(null);
   const brandingTex = useBrandingTexture();
+  const haloTex = useScreenHaloTexture();
 
   const bezelThickness = 0.22;
   const bottomBezelHeight = 0.62;
@@ -129,42 +167,42 @@ export function ScreenMesh({
       }
     }
 
-    // Dynamic cinema ambilight flicker (Hiệu ứng ánh sáng màn chiếu trong trẻo, không bị chói mờ)
+    // Dynamic cinema ambilight flicker (Hiệu ứng ánh sáng màn chiếu vàng ấm nhẹ, sang trọng)
     const time = state.clock.getElapsedTime();
     if (isPlaying) {
-      const flicker = Math.sin(time * 2.8) * 0.25 + Math.cos(time * 5.7) * 0.15;
-      const baseGlow = isDimmed ? 3.0 : 1.5;
-      const baseSpot = isDimmed ? 4.5 : 2.0;
-      const baseAmbient = isDimmed ? 1.0 : 0.4;
+      const flicker = Math.sin(time * 2.8) * 0.15 + Math.cos(time * 5.7) * 0.08;
+      const baseGlow = isDimmed ? 1.6 : 0.9;
+      const baseSpot = isDimmed ? 2.2 : 1.0;
+      const baseAmbient = isDimmed ? 0.6 : 0.25;
 
       if (glowLightRef.current) {
         glowLightRef.current.intensity = baseGlow + flicker;
       }
       if (spotGlowRef.current) {
-        spotGlowRef.current.intensity = baseSpot + flicker * 0.5;
+        spotGlowRef.current.intensity = baseSpot + flicker * 0.3;
       }
       if (ambientGlowRef.current) {
-        ambientGlowRef.current.intensity = baseAmbient + flicker * 0.2;
+        ambientGlowRef.current.intensity = baseAmbient + flicker * 0.15;
       }
     } else {
       if (glowLightRef.current) {
         glowLightRef.current.intensity = THREE.MathUtils.lerp(
           glowLightRef.current.intensity,
-          0.8,
+          0.5,
           0.05
         );
       }
       if (spotGlowRef.current) {
         spotGlowRef.current.intensity = THREE.MathUtils.lerp(
           spotGlowRef.current.intensity,
-          1.2,
+          0.8,
           0.05
         );
       }
       if (ambientGlowRef.current) {
         ambientGlowRef.current.intensity = THREE.MathUtils.lerp(
           ambientGlowRef.current.intensity,
-          0.3,
+          0.2,
           0.05
         );
       }
@@ -173,6 +211,21 @@ export function ScreenMesh({
 
   return (
     <group ref={groupRef} position={position} rotation={rotation} name="imax-flat-screen-rig">
+      {/* 0. Vệt sáng hào quang vàng ấm dịu mắt toả ra xung quanh màn chiếu hắt lên tường rạp */}
+      {haloTex && (
+        <mesh position={[0, (bezelThickness - bottomBezelHeight) / 4, -0.15]}>
+          <planeGeometry args={[width + 3.8, height + 2.8]} />
+          <meshBasicMaterial
+            map={haloTex}
+            transparent
+            opacity={isDimmed ? (isPlaying ? 0.22 : 0.12) : 0.08}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+
       {/* 1. Khung viền màn chiếu phẳng IMAX nguyên bản (Cinema Bezel) */}
       {/* Khung sau màn hình */}
       <mesh position={[0, 0, -0.07]}>
@@ -212,6 +265,51 @@ export function ScreenMesh({
         </mesh>
       )}
 
+      {/* 1.5. Đường chỉ viền vàng ấm siêu mảnh (Gold Hairline Rim) sang trọng, tự nhiên */}
+      {/* Viền chỉ trên */}
+      <mesh position={[0, height / 2 + 0.008, 0.035]}>
+        <boxGeometry args={[width + 0.02, 0.015, 0.02]} />
+        <meshBasicMaterial
+          color="#fde68a"
+          transparent
+          opacity={isDimmed ? 0.42 : 0.28}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Viền chỉ dưới (sát trên logo LEHUY) */}
+      <mesh position={[0, -height / 2 - 0.008, 0.035]}>
+        <boxGeometry args={[width + 0.02, 0.015, 0.02]} />
+        <meshBasicMaterial
+          color="#fde68a"
+          transparent
+          opacity={isDimmed ? 0.42 : 0.28}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Viền chỉ trái */}
+      <mesh position={[-width / 2 - 0.008, 0, 0.035]}>
+        <boxGeometry args={[0.015, height + 0.02, 0.02]} />
+        <meshBasicMaterial
+          color="#fde68a"
+          transparent
+          opacity={isDimmed ? 0.42 : 0.28}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Viền chỉ phải */}
+      <mesh position={[width / 2 + 0.008, 0, 0.035]}>
+        <boxGeometry args={[0.015, height + 0.02, 0.02]} />
+        <meshBasicMaterial
+          color="#fde68a"
+          transparent
+          opacity={isDimmed ? 0.42 : 0.28}
+          toneMapped={false}
+        />
+      </mesh>
+
       {/* 2. Mặt nền màn chiếu phẳng khi chưa bật video */}
       <mesh position={[0, 0, 0]}>
         <planeGeometry args={[width, height]} />
@@ -224,13 +322,13 @@ export function ScreenMesh({
         />
       </mesh>
 
-      {/* 3. Hệ thống ánh sáng màn chiếu hắt ra nhẹ nhàng, trong trẻo */}
+      {/* 3. Hệ thống ánh sáng màn chiếu vàng ấm nhẹ nhàng, sang trọng */}
       <pointLight
         ref={glowLightRef}
         position={[0, -1, 2.0]}
-        color={isPlaying ? '#bae6fd' : '#475569'}
-        intensity={isDimmed ? 3.0 : 1.5}
-        distance={28}
+        color={isPlaying ? '#fef3c7' : '#475569'}
+        intensity={isDimmed ? 1.6 : 0.9}
+        distance={24}
         decay={1.8}
       />
 
@@ -238,20 +336,20 @@ export function ScreenMesh({
         ref={spotGlowRef}
         position={[0, 0, 2.5]}
         target-position={[0, -5, 12]}
-        color={isPlaying ? '#93c5fd' : '#334155'}
-        intensity={isDimmed ? 4.5 : 2.0}
+        color={isPlaying ? '#fed7aa' : '#334155'}
+        intensity={isDimmed ? 2.2 : 1.0}
         angle={Math.PI / 2.5}
         penumbra={0.9}
-        distance={30}
+        distance={26}
         decay={1.6}
       />
 
       <pointLight
         ref={ambientGlowRef}
         position={[0, 0, -1.0]}
-        color={isPlaying ? '#38bdf8' : '#1e293b'}
-        intensity={isDimmed ? 1.0 : 0.4}
-        distance={15}
+        color={isPlaying ? '#f59e0b' : '#1e293b'}
+        intensity={isDimmed ? 0.6 : 0.25}
+        distance={14}
         decay={2.0}
       />
     </group>

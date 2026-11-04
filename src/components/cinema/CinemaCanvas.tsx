@@ -68,6 +68,7 @@ class CinemaErrorBoundary extends React.Component<
 
 const PROFILE_KEY = 'wetube-cine:profile';
 const AUDIO_SETTINGS_KEY = 'wetube-cine:audio-settings';
+const QUALITY_SETTINGS_KEY = 'wetube-cine:video-quality';
 
 export default function CinemaCanvas({
   initialVideoId = '60ItHLz5WEA', // Default to Rạp 01 movie (Alan Walker - Faded, 100% embeddable globally)
@@ -183,6 +184,25 @@ export default function CinemaCanvas({
     return false;
   });
 
+  // Cài đặt độ phân giải video rạp chiếu (Mặc định: hd1080 Full HD siêu nét)
+  const [quality, setQuality] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(QUALITY_SETTINGS_KEY);
+        if (saved) return saved;
+      } catch { }
+    }
+    return 'hd1080';
+  });
+
+  const handleQualityChange = useCallback((newQuality: string) => {
+    setQuality(newQuality);
+    try {
+      localStorage.setItem(QUALITY_SETTINGS_KEY, newQuality);
+    } catch { }
+    screenRef.current?.setPlaybackQuality?.(newQuality);
+  }, []);
+
   // Synchronize CSS3D transforms directly from Three.js scene to CinemaScreenOverlay DOM
   const handleScreenTransform = useCallback(
     (
@@ -217,6 +237,8 @@ export default function CinemaCanvas({
     isHost,
     isAdmin,
     canControl,
+    showSubtitles,
+    sendToggleSubtitles,
     isChatMuted,
     isMicMuted,
     adminToggleControl,
@@ -634,6 +656,10 @@ export default function CinemaCanvas({
         onOpenProfile={openWardrobe}
         isDimmed={isDimmed}
         onToggleDimmed={() => setIsDimmed((d) => !d)}
+        showSubtitles={showSubtitles}
+        onToggleSubtitles={sendToggleSubtitles}
+        quality={quality}
+        onSelectQuality={handleQualityChange}
       />
 
       {/* 4. Native React 19 YouTube IMAX Screen DOM Overlay (Zero createRoot, zero crash) */}
@@ -642,6 +668,9 @@ export default function CinemaCanvas({
         videoId={videoId}
         isPlaying={roomState?.status !== 'paused'}
         canControl={canControl}
+        showSubtitles={showSubtitles}
+        quality={quality}
+        onToggleSubtitles={sendToggleSubtitles}
         onReady={handlePlayerReady}
         onTogglePlay={handleTogglePlay}
         onPlay={sendPlay}
