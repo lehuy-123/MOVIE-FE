@@ -687,8 +687,11 @@ export default function CinemaCanvas({
             antialias: true,
             powerPreference: 'high-performance',
             alpha: false,
+            stencil: false,
+            depth: true,
           }}
           dpr={[1, 1.25]}
+          performance={{ min: 0.5 }}
           className="w-full h-full"
         >
           <Suspense fallback={null}>

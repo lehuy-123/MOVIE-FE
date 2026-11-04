@@ -105,34 +105,33 @@ export function CinemaProjectorBeam({ isDimmed = true }: CinemaProjectorBeamProp
     return obj;
   }, [screenY, screenZ]);
 
-  // Chuyển đổi ánh sáng mượt mà (Lerp) khi bật / tắt đèn khán phòng
+  // Chuyển đổi ánh sáng mượt mà (Lerp) khi bật / tắt đèn khán phòng (Dừng tính toán khi đã đạt đích)
   useFrame((_, delta) => {
     const targetOpacity = isDimmed ? 0.0 : 0.13;
     const targetSpot = isDimmed ? 0.0 : 20.0;
     const targetLens = isDimmed ? 0.08 : 1.0;
 
+    const bMat = beamMatRef.current;
+    const spot = spotRef.current;
+    const lens = lensGlowRef.current;
+
+    // Thoát sớm nếu tất cả đã tiệm cận target (Tiết kiệm 100% CPU/GPU khi đèn ổn định)
+    const isBeamSettled = !bMat || Math.abs(bMat.opacity - targetOpacity) < 0.001;
+    const isSpotSettled = !spot || Math.abs(spot.intensity - targetSpot) < 0.01;
+    const isLensSettled = !lens || Math.abs(lens.opacity - targetLens) < 0.001;
+
+    if (isBeamSettled && isSpotSettled && isLensSettled) return;
+
     const lerpSpeed = Math.min(1, delta * 3.5);
 
-    if (beamMatRef.current) {
-      beamMatRef.current.opacity = THREE.MathUtils.lerp(
-        beamMatRef.current.opacity,
-        targetOpacity,
-        lerpSpeed
-      );
+    if (bMat && !isBeamSettled) {
+      bMat.opacity = THREE.MathUtils.lerp(bMat.opacity, targetOpacity, lerpSpeed);
     }
-    if (spotRef.current) {
-      spotRef.current.intensity = THREE.MathUtils.lerp(
-        spotRef.current.intensity,
-        targetSpot,
-        lerpSpeed
-      );
+    if (spot && !isSpotSettled) {
+      spot.intensity = THREE.MathUtils.lerp(spot.intensity, targetSpot, lerpSpeed);
     }
-    if (lensGlowRef.current) {
-      lensGlowRef.current.opacity = THREE.MathUtils.lerp(
-        lensGlowRef.current.opacity,
-        targetLens,
-        lerpSpeed
-      );
+    if (lens && !isLensSettled) {
+      lens.opacity = THREE.MathUtils.lerp(lens.opacity, targetLens, lerpSpeed);
     }
   });
 

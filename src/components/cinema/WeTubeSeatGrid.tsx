@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { SeatData } from '@/types/cinema';
 import { WeTubeAvatar } from './WeTubeAvatar';
@@ -124,11 +124,9 @@ export function WeTubeSeatGrid({
     return list;
   }, [selectedSeatId, occupiedSeats, currentUserNickname, currentUserShirtColor]);
 
-  // Tạo vật liệu logo thương hiệu CGV sắc nét (vẽ Canvas khởi tạo tức thì + nạp cgv-logo.png chuẩn thương hiệu)
-  const cgvLogoMat = useMemo(() => {
-    if (typeof document === 'undefined') {
-      return new THREE.MeshBasicMaterial();
-    }
+  // 1. Tạo Texture logo CGV duy nhất 1 lần (Khởi tạo Canvas tức thì + nạp cgv-logo.png)
+  const cgvTexture = useMemo(() => {
+    if (typeof document === 'undefined') return null;
 
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -165,7 +163,7 @@ export function WeTubeSeatGrid({
     texture.generateMipmaps = true;
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
-    texture.anisotropy = 8;
+    texture.anisotropy = 4;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -182,55 +180,81 @@ export function WeTubeSeatGrid({
       texture.needsUpdate = true;
     };
 
+    return texture;
+  }, []);
+
+  // 2. Vật liệu logo CGV dùng chung cho 100 ghế - Tối ưu 0ms khi bật/tắt đèn (không tạo lại Texture/Shader)
+  const cgvLogoMat = useMemo(() => {
     return new THREE.MeshStandardMaterial({
-      map: texture,
+      map: cgvTexture || undefined,
       transparent: true,
       alphaTest: 0.12,
       roughness: 0.45,
       metalness: 0.1,
       emissive: isDimmed ? '#000000' : '#ed3124',
-      emissiveMap: isDimmed ? null : texture,
+      emissiveMap: isDimmed ? null : (cgvTexture || null),
       emissiveIntensity: isDimmed ? 0 : 0.08,
       side: THREE.FrontSide,
     });
-  }, [isDimmed]);
+  }, [cgvTexture]); // Không phụ thuộc isDimmed để không huỷ/tạo lại Shader
+
+  // Cập nhật emissive mượt mà qua uniform khi isDimmed đổi mà không gây giật khung hình
+  useEffect(() => {
+    if (!cgvLogoMat) return;
+    cgvLogoMat.emissive.set(isDimmed ? '#000000' : '#ed3124');
+    cgvLogoMat.emissiveMap = isDimmed ? null : (cgvTexture || null);
+    cgvLogoMat.emissiveIntensity = isDimmed ? 0 : 0.08;
+    cgvLogoMat.needsUpdate = true;
+  }, [isDimmed, cgvLogoMat, cgvTexture]);
+
+  // 3. Tối ưu O(1) tra cứu bong bóng chat thay vì 100 lần filter mảng
+  const bubbleMap = useMemo(() => {
+    const map = new Map<string, ChatMessage>();
+    for (let i = 0; i < activeBubbles.length; i++) {
+      const b = activeBubbles[i];
+      if (b.seatId) map.set(b.seatId, b);
+    }
+    return map;
+  }, [activeBubbles]);
 
   return (
     <group name="wetube-seat-grid">
       {seats.map((seat) => {
         const isSelected = seat.id === selectedSeatId;
 
-        // Check if there is an active chat bubble for this seat occupant
-        const seatBubble = activeBubbles
-          .filter((b) => b.seatId === seat.id || (isSelected && b.socketId === currentSocketId))
-          .slice(-1)[0];
+        // Tra cứu tức thì O(1)
+        const seatBubble =
+          bubbleMap.get(seat.id) ||
+          (isSelected && currentSocketId
+            ? activeBubbles.find((b) => b.socketId === currentSocketId)
+            : undefined);
 
         return (
           <group
             key={seat.id}
             position={seat.position}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectSeat(seat);
-            }}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              document.body.style.cursor = 'pointer';
-            }}
-            onPointerOut={() => {
-              document.body.style.cursor = 'auto';
-            }}
           >
             {/* 1. Ghế rạp chiếu cinema hiện đại rộng rãi, sắc nét, khoảng cách thoáng đãng */}
             <group position={[0, 0, 0]}>
               {/* Chân ghế */}
               <mesh geometry={seatBoxGeo} material={seatLegMat} position={[0, 0.16, 0.02]} scale={[0.14, 0.32, 0.14]} />
-              {/* Đệm ngồi êm ái rộng rãi */}
+              {/* Đệm ngồi êm ái rộng rãi - Gắn sự kiện click/hover TẠI ĐÂY để tối ưu giảm 700 -> 100 Raycast targets trên GPU */}
               <mesh
                 geometry={seatBoxGeo}
                 material={isSelected ? seatSelectedMat : seatMat}
                 position={[0, 0.38, 0]}
                 scale={[1.08, 0.16, 0.78]}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectSeat(seat);
+                }}
+                onPointerOver={(e) => {
+                  e.stopPropagation();
+                  document.body.style.cursor = 'pointer';
+                }}
+                onPointerOut={() => {
+                  document.body.style.cursor = 'auto';
+                }}
               />
               {/* Lưng tựa trước (rộng rãi, tạo dáng ghế rạp phim cao cấp) */}
               <mesh

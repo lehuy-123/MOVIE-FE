@@ -135,51 +135,77 @@ export function ScreenMesh({
   const bezelThickness = 0.22;
   const bottomBezelHeight = 0.62;
 
-  // Đồng bộ vị trí 3D màn chiếu sang ma trận CSS 3D mỗi frame
+  // Cache kiểm tra trạng thái camera để bỏ qua tính toán khi camera đứng yên (Tối ưu GPU/CPU cực đại)
+  const lastCamPosRef = useRef(new THREE.Vector3());
+  const lastCamQuatRef = useRef(new THREE.Quaternion());
+  const lastFovRef = useRef(0);
+  const lastSizeWRef = useRef(0);
+  const lastSizeHRef = useRef(0);
+
+  // Đồng bộ vị trí 3D màn chiếu sang ma trận CSS 3D (Chỉ tính toán khi camera hoặc viewport thay đổi)
   useFrame((state) => {
     const { camera, size } = state;
     if (groupRef.current && onScreenTransform) {
-      camera.updateMatrixWorld();
-      groupRef.current.updateWorldMatrix(true, false);
+      const heightHalf = size.height / 2;
+      const fov = camera.projectionMatrix.elements[5] * heightHalf;
 
-      const matrix = groupRef.current.matrixWorld;
-      const camPos = camera.position;
-      const objPos = v1.setFromMatrixPosition(matrix);
-      const deltaCamObj = objPos.sub(camPos);
-      const camDir = camera.getWorldDirection(v2);
-      const isBehindCamera = deltaCamObj.angleTo(camDir) > Math.PI / 2;
+      const camMoved =
+        camera.position.distanceToSquared(lastCamPosRef.current) > 1e-6 ||
+        !camera.quaternion.equals(lastCamQuatRef.current) ||
+        Math.abs(lastFovRef.current - fov) > 1e-4 ||
+        lastSizeWRef.current !== size.width ||
+        lastSizeHRef.current !== size.height;
 
-      if (isBehindCamera) {
-        onScreenTransform('', '', '', false);
-      } else {
-        const widthHalf = size.width / 2;
-        const heightHalf = size.height / 2;
-        const fov = camera.projectionMatrix.elements[5] * heightHalf;
-        const cameraMatrix = getCameraCSSMatrix(camera.matrixWorldInverse);
-        const cameraTransform = `translateZ(${fov}px)`;
+      if (camMoved) {
+        lastCamPosRef.current.copy(camera.position);
+        lastCamQuatRef.current.copy(camera.quaternion);
+        lastFovRef.current = fov;
+        lastSizeWRef.current = size.width;
+        lastSizeHRef.current = size.height;
 
-        const distanceFactor = (width / 1920) * 400;
-        const outerTransform = `${cameraTransform}${cameraMatrix}translate(${widthHalf}px,${heightHalf}px)`;
-        const innerTransform = getObjectCSSMatrix(matrix, 1 / (distanceFactor / 400));
-        const perspective = `${fov}px`;
+        camera.updateMatrixWorld();
+        groupRef.current.updateWorldMatrix(true, false);
 
-        onScreenTransform(outerTransform, innerTransform, perspective, true);
+        const matrix = groupRef.current.matrixWorld;
+        const camPos = camera.position;
+        const objPos = v1.setFromMatrixPosition(matrix);
+        const deltaCamObj = objPos.sub(camPos);
+        const camDir = camera.getWorldDirection(v2);
+        const isBehindCamera = deltaCamObj.angleTo(camDir) > Math.PI / 2;
+
+        if (isBehindCamera) {
+          onScreenTransform('', '', '', false);
+        } else {
+          const widthHalf = size.width / 2;
+          const cameraMatrix = getCameraCSSMatrix(camera.matrixWorldInverse);
+          const cameraTransform = `translateZ(${fov}px)`;
+
+          const distanceFactor = (width / 1920) * 400;
+          const outerTransform = `${cameraTransform}${cameraMatrix}translate(${widthHalf}px,${heightHalf}px)`;
+          const innerTransform = getObjectCSSMatrix(matrix, 1 / (distanceFactor / 400));
+          const perspective = `${fov}px`;
+
+          onScreenTransform(outerTransform, innerTransform, perspective, true);
+        }
       }
     }
 
-    // Ánh sáng màn chiếu vàng ấm êm dịu, ổn định 60fps (không dao động gây giật khung hình)
+    // Ánh sáng màn chiếu vàng ấm êm dịu, ổn định 60fps (dừng tính toán khi đã tiệm cận target)
     const targetGlow = isPlaying ? (isDimmed ? 1.6 : 0.9) : 0.5;
     const targetSpot = isPlaying ? (isDimmed ? 2.2 : 1.0) : 0.8;
     const targetAmbient = isPlaying ? (isDimmed ? 0.6 : 0.25) : 0.2;
 
-    if (glowLightRef.current && Math.abs(glowLightRef.current.intensity - targetGlow) > 0.01) {
-      glowLightRef.current.intensity = THREE.MathUtils.lerp(glowLightRef.current.intensity, targetGlow, 0.08);
+    const gLight = glowLightRef.current;
+    if (gLight && Math.abs(gLight.intensity - targetGlow) > 0.01) {
+      gLight.intensity = THREE.MathUtils.lerp(gLight.intensity, targetGlow, 0.08);
     }
-    if (spotGlowRef.current && Math.abs(spotGlowRef.current.intensity - targetSpot) > 0.01) {
-      spotGlowRef.current.intensity = THREE.MathUtils.lerp(spotGlowRef.current.intensity, targetSpot, 0.08);
+    const sLight = spotGlowRef.current;
+    if (sLight && Math.abs(sLight.intensity - targetSpot) > 0.01) {
+      sLight.intensity = THREE.MathUtils.lerp(sLight.intensity, targetSpot, 0.08);
     }
-    if (ambientGlowRef.current && Math.abs(ambientGlowRef.current.intensity - targetAmbient) > 0.01) {
-      ambientGlowRef.current.intensity = THREE.MathUtils.lerp(ambientGlowRef.current.intensity, targetAmbient, 0.08);
+    const aLight = ambientGlowRef.current;
+    if (aLight && Math.abs(aLight.intensity - targetAmbient) > 0.01) {
+      aLight.intensity = THREE.MathUtils.lerp(aLight.intensity, targetAmbient, 0.08);
     }
   });
 

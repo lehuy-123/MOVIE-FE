@@ -167,6 +167,9 @@ export function CinemaCameraController({ mode, selectedSeat, controlsRef, resetK
   const lookCurrent = useRef(new THREE.Vector3(...OVERVIEW_CAMERA.target));
   const modeRef = useRef<CameraMode>(mode);
 
+  const tempClampedRef = useRef(new THREE.Vector3());
+  const tempDeltaRef = useRef(new THREE.Vector3());
+
   // Chỉ chuyển cảnh lại khi đổi chế độ hoặc đổi ghế ở chế độ ngồi
   const baseKey = mode === 'seat' && selectedSeat ? `seat:${selectedSeat.id}` : mode === 'seat' ? 'overview' : mode;
   const poseKey = `${baseKey}#${resetKey}`;
@@ -211,9 +214,10 @@ export function CinemaCameraController({ mode, selectedSeat, controlsRef, resetK
     } else if (modeRef.current === 'overview') {
       const controls = controlsRef.current;
       if (controls && controls.enabled) {
-        const clamped = controls.target.clone().clamp(PAN_MIN, PAN_MAX);
+        const clamped = tempClampedRef.current.copy(controls.target).clamp(PAN_MIN, PAN_MAX);
         if (!clamped.equals(controls.target)) {
-          camera.position.add(clamped.clone().sub(controls.target));
+          const delta = tempDeltaRef.current.copy(clamped).sub(controls.target);
+          camera.position.add(delta);
           controls.target.copy(clamped);
         }
       }
