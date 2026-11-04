@@ -24,29 +24,42 @@ const ICE_SERVERS: RTCConfiguration = {
 };
 
 /**
- * Tối ưu hoá SDP của Opus để giọng nói truyền đi liên tục 100%,
- * tắt usedtx để không bao giờ bị ngắt hay nuốt các chữ cuối câu.
+ * Tối ưu hoá SDP của Opus lên chuẩn Studio 48kHz / 128kbps Constant Bitrate (CBR),
+ * tắt hoàn toàn DTX (usedtx=0) để luồng âm thanh truyền đi liên tục 100%,
+ * không bao giờ bị ngắt hay nuốt chữ cuối câu.
  */
 function optimizeOpusSdp(sdp: string): string {
   if (!sdp) return sdp;
-  return sdp.replace(/a=fmtp:(\d+)(?:[^\r\n]*)/g, (line, pt) => {
-    if (line.includes('minptime') || line.includes('useinbandfec') || sdp.includes(`a=rtpmap:${pt} opus/48000`)) {
-      let params = line.slice(`a=fmtp:${pt} `.length);
-      // Tắt DTX (Discontinuous Transmission): truyền âm thanh liên tục không ngắt quãng
-      params = params.replace(/usedtx=[01]/g, '').replace(/;;+/g, ';');
-      if (!params.includes('usedtx=0')) {
-        params += ';usedtx=0';
-      }
-      if (!params.includes('useinbandfec=1')) {
-        params += ';useinbandfec=1';
-      }
-      if (!params.includes('cbr=1')) {
-        params += ';cbr=1';
-      }
-      if (!params.includes('maxaveragebitrate=')) {
-        params += ';maxaveragebitrate=64000';
-      }
-      return `a=fmtp:${pt} ${params.replace(/^;|;$/g, '')}`;
+  return sdp.replace(/a=fmtp:(\d+) ([^\r\n]*)/g, (line, pt, rawParams: string) => {
+    if (
+      rawParams.includes('minptime') ||
+      rawParams.includes('useinbandfec') ||
+      sdp.includes(`a=rtpmap:${pt} opus/48000`)
+    ) {
+      const paramMap = new Map<string, string>();
+      rawParams.split(';').forEach((part: string) => {
+        const trimmed = part.trim();
+        if (!trimmed) return;
+        const [k, v] = trimmed.split('=');
+        if (k && v !== undefined) {
+          paramMap.set(k.trim(), v.trim());
+        }
+      });
+
+      paramMap.set('minptime', '10');
+      paramMap.set('useinbandfec', '1');
+      paramMap.set('usedtx', '0');
+      paramMap.set('cbr', '1');
+      paramMap.set('maxaveragebitrate', '128000');
+      paramMap.set('maxplaybackrate', '48000');
+      paramMap.set('sprop-maxcapturerate', '48000');
+      paramMap.set('stereo', '0');
+      paramMap.set('sprop-stereo', '0');
+
+      const serialized = Array.from(paramMap.entries())
+        .map(([k, v]) => `${k}=${v}`)
+        .join(';');
+      return `a=fmtp:${pt} ${serialized}`;
     }
     return line;
   });
@@ -71,6 +84,7 @@ export function useVoiceChat({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
 
+  const rawStreamRef = useRef<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
@@ -78,6 +92,7 @@ export function useVoiceChat({
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
+  const pilotOscillatorRef = useRef<OscillatorNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -97,17 +112,46 @@ export function useVoiceChat({
     return nextQueue;
   }, []);
 
-  // Gắn hoặc thay thế audio track an toàn qua replaceTrack (tránh renegotiation gián đoạn âm thanh)
-  const attachLocalStreamToPC = useCallback((pc: RTCPeerConnection, stream: MediaStream | null) => {
+  // Gắn hoặc thay thế audio track lên đúng transceiver đang active
+  const attachLocalStreamToPC = useCallback(async (pc: RTCPeerConnection, stream: MediaStream | null) => {
     if (!pc || pc.connectionState === 'closed') return;
     const audioTrack = stream?.getAudioTracks()[0] || null;
-    const senders = pc.getSenders();
-    const audioSender = senders.find((s) => s.track?.kind === 'audio' || s.track === null);
+    if (audioTrack) {
+      // Ép trình duyệt sử dụng chế độ OPUS_APPLICATION_AUDIO (Full-band Studio Hi-Fi)
+      // thay vì OPUS_APPLICATION_VOIP để giữ nguyên âm sắc gốc và không bị cắt đuôi câu
+      try {
+        audioTrack.contentHint = 'music';
+      } catch {
+        // ignore
+      }
+    }
 
-    if (audioSender) {
-      audioSender.replaceTrack(audioTrack).catch((err) => {
+    const transceivers = pc.getTransceivers();
+    const audioTransceiver =
+      transceivers.find((t) => t.receiver?.track?.kind === 'audio' && t.mid !== null) ||
+      transceivers.find((t) => t.receiver?.track?.kind === 'audio');
+
+    if (audioTransceiver) {
+      if (audioTransceiver.direction !== 'sendrecv') {
+        try {
+          audioTransceiver.direction = 'sendrecv';
+        } catch {
+          // ignore
+        }
+      }
+      try {
+        await audioTransceiver.sender.replaceTrack(audioTrack);
+        if (audioTrack) {
+          const params = audioTransceiver.sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            params.encodings[0].maxBitrate = 128000;
+            params.encodings[0].active = true;
+            await audioTransceiver.sender.setParameters(params).catch(() => {});
+          }
+        }
+      } catch (err) {
         console.warn('[VoiceChat] replaceTrack error:', err);
-      });
+      }
     } else if (audioTrack && stream) {
       try {
         pc.addTrack(audioTrack, stream);
@@ -173,18 +217,6 @@ export function useVoiceChat({
 
       pc = new RTCPeerConnection(ICE_SERVERS);
 
-      // Thêm audio transceiver 2 chiều (sendrecv)
-      try {
-        pc.addTransceiver('audio', { direction: 'sendrecv' });
-      } catch {
-        // fallback
-      }
-
-      // Nếu đang có local stream từ trước, gắn ngay vào sender
-      if (localStreamRef.current) {
-        attachLocalStreamToPC(pc, localStreamRef.current);
-      }
-
       // Xử lý ICE Candidate phát sinh từ local
       pc.onicecandidate = (event) => {
         if (event.candidate && socket?.connected) {
@@ -198,6 +230,7 @@ export function useVoiceChat({
       // Xử lý khi nhận remote audio track từ người khác trong rạp
       pc.ontrack = (event) => {
         console.log(`[VoiceChat] 🔊 Received remote audio track from ${peerId}`);
+
         const remoteStream =
           event.streams && event.streams[0]
             ? event.streams[0]
@@ -207,6 +240,7 @@ export function useVoiceChat({
         if (!audio) {
           audio = document.createElement('audio');
           audio.autoplay = true;
+          audio.preload = 'auto';
           audio.setAttribute('playsinline', 'true');
           audio.setAttribute('webkit-playsinline', 'true');
           audio.style.position = 'fixed';
@@ -221,19 +255,29 @@ export function useVoiceChat({
           remoteAudiosRef.current.set(peerId, audio);
         }
 
-        // Chỉ gán lại nếu stream khác để không làm gián đoạn buffer audio đang phát
         if (audio.srcObject !== remoteStream) {
           audio.srcObject = remoteStream;
         }
         audio.volume = 1.0;
         audio.muted = false;
 
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {
-            // Sẽ tự động resume khi người dùng click hoặc chạm màn hình
-          });
-        }
+        const ensurePlaying = () => {
+          const targetAudio = remoteAudiosRef.current.get(peerId);
+          if (!targetAudio) return;
+          if (targetAudio.srcObject !== remoteStream) {
+            targetAudio.srcObject = remoteStream;
+          }
+          targetAudio.volume = 1.0;
+          targetAudio.muted = false;
+          const p = targetAudio.play();
+          if (p !== undefined) {
+            p.catch(() => {});
+          }
+        };
+
+        // Khi peer bên kia bật mic qua replaceTrack, sự kiện onunmute sẽ kích hoạt ngay lập tức
+        event.track.onunmute = ensurePlaying;
+        ensurePlaying();
       };
 
       pc.onconnectionstatechange = () => {
@@ -246,7 +290,7 @@ export function useVoiceChat({
       peerConnectionsRef.current.set(peerId, pc);
       return pc;
     },
-    [socket, cleanupPeer, attachLocalStreamToPC]
+    [socket, cleanupPeer]
   );
 
   // Tạo offer gửi đến peer một cách an toàn
@@ -258,9 +302,23 @@ export function useVoiceChat({
 
         try {
           makingOfferRef.current.set(peerId, true);
-          if (localStreamRef.current) {
-            attachLocalStreamToPC(pc, localStreamRef.current);
+
+          // Đảm bảo có đúng 1 audio transceiver chiều sendrecv trước khi tạo Offer
+          const hasAudioTransceiver = pc
+            .getTransceivers()
+            .some((t) => t.receiver?.track?.kind === 'audio');
+          if (!hasAudioTransceiver) {
+            try {
+              pc.addTransceiver('audio', { direction: 'sendrecv' });
+            } catch {
+              // fallback
+            }
           }
+
+          if (localStreamRef.current) {
+            await attachLocalStreamToPC(pc, localStreamRef.current);
+          }
+
           const offer = await pc.createOffer();
           const enhancedOffer: RTCSessionDescriptionInit = {
             type: offer.type,
@@ -280,11 +338,28 @@ export function useVoiceChat({
 
   // Tắt hẳn mic và thu hồi các track
   const turnOffMic = useCallback(() => {
+    if (pilotOscillatorRef.current) {
+      try {
+        pilotOscillatorRef.current.stop();
+        pilotOscillatorRef.current.disconnect();
+      } catch {
+        // ignore
+      }
+      pilotOscillatorRef.current = null;
+    }
+
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
         track.stop();
       });
       localStreamRef.current = null;
+    }
+
+    if (rawStreamRef.current) {
+      rawStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      rawStreamRef.current = null;
     }
 
     // Mute transmission on all active peer connections seamlessly using replaceTrack(null)
@@ -320,28 +395,61 @@ export function useVoiceChat({
     }
   }, [socket, attachLocalStreamToPC]);
 
-  // Bắt đầu theo dõi cường độ âm thanh để phát hiện khi nói (Speaking Level Meter)
-  const startAudioMeter = useCallback(
-    (stream: MediaStream) => {
+  /**
+   * Chuỗi xử lý âm thanh Dry Natural Voice 48kHz (Trong trẻo, tự nhiên, KHÔNG vang dội/echo):
+   * 1. High-Pass Filter 80Hz: Chỉ lọc tiếng ù trầm nền (< 80Hz), giữ nguyên 100% âm sắc tự nhiên không tạo hiệu ứng vang.
+   * 2. Bỏ hoàn toàn Compressor & Makeup Gain để không khuếch đại âm dội phòng (room reverb) và không tạo độ trễ lookahead.
+   * 3. Sub-audible Pilot Signal (20Hz @ -85dBFS): Giữ luồng WebRTC mở liên tục 100% để không bị ngắt chữ cuối câu.
+   */
+  const setupStudioAudioPipeline = useCallback(
+    (rawStream: MediaStream): MediaStream => {
       try {
         const AudioContextClass =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) return;
+        if (!AudioContextClass) return rawStream;
 
         if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-          audioContextRef.current = new AudioContextClass();
+          audioContextRef.current = new AudioContextClass({
+            sampleRate: 48000,
+            latencyHint: 'interactive',
+          });
         }
         const ctx = audioContextRef.current;
         if (ctx.state === 'suspended') {
           ctx.resume().catch(() => {});
         }
 
-        const source = ctx.createMediaStreamSource(stream);
+        const source = ctx.createMediaStreamSource(rawStream);
+
+        // 1. Lọc ù trầm dưới 80Hz với độ trễ 0ms, giữ giọng khô (dry) tự nhiên không vang
+        const highPass = ctx.createBiquadFilter();
+        highPass.type = 'highpass';
+        highPass.frequency.value = 80;
+        highPass.Q.value = 0.707;
+
+        // 2. Tín hiệu dẫn đường liên tục (Anti-Gate Pilot) ngăn WebRTC tự ngắt âm cuối câu
+        const pilotOsc = ctx.createOscillator();
+        const pilotGain = ctx.createGain();
+        pilotOsc.type = 'sine';
+        pilotOsc.frequency.value = 20;
+        pilotGain.gain.value = 0.00005;
+        pilotOsc.connect(pilotGain);
+        pilotOsc.start();
+        pilotOscillatorRef.current = pilotOsc;
+
+        // 3. Đích xuất MediaStream trực tiếp (Dry Pass-Through, Gain = 1.0)
+        const destination = ctx.createMediaStreamDestination();
+
+        source.connect(highPass);
+        highPass.connect(destination);
+        pilotGain.connect(destination);
+
+        // 4. Gắn Analyser để hiển thị hiệu ứng đèn đang nói
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 512;
         analyser.smoothingTimeConstant = 0.25;
-        source.connect(analyser);
+        highPass.connect(analyser);
         analyserRef.current = analyser;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -351,15 +459,13 @@ export function useVoiceChat({
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          // Phân tích dải tần số giọng nói con người (bins 2 đến 45: ~150Hz đến ~3800Hz)
           let voiceEnergy = 0;
           const maxBin = Math.min(dataArray.length, 45);
           for (let i = 2; i < maxBin; i++) {
             voiceEnergy += dataArray[i];
           }
           const avg = voiceEnergy / (maxBin - 2);
-          // Ngưỡng nhạy (> 8) để bắt trọn cả những chữ cuối nói nhỏ hoặc thì thầm
-          const isLoud = avg > 8;
+          const isLoud = avg > 7;
 
           if (isLoud) {
             if (!isSpeakingRef.current) {
@@ -374,7 +480,6 @@ export function useVoiceChat({
               speakingTimerRef.current = null;
             }
           } else if (isSpeakingRef.current && !speakingTimerRef.current) {
-            // Giữ trạng thái nói 1200ms để không bị ngắt quãng giữa các từ hay cuối câu
             speakingTimerRef.current = setTimeout(() => {
               isSpeakingRef.current = false;
               setIsSpeaking(false);
@@ -389,8 +494,20 @@ export function useVoiceChat({
         };
 
         checkVolume();
+
+        const processedStream = destination.stream;
+        const processedTrack = processedStream.getAudioTracks()[0];
+        if (processedTrack) {
+          try {
+            processedTrack.contentHint = 'music';
+          } catch {
+            // ignore
+          }
+        }
+        return processedStream;
       } catch (err) {
-        console.warn('[VoiceChat] Audio Meter error:', err);
+        console.warn('[VoiceChat] Studio Audio Pipeline fallback:', err);
+        return rawStream;
       }
     },
     [socket]
@@ -411,40 +528,47 @@ export function useVoiceChat({
 
     try {
       setMicError(null);
-      // TẮT noiseSuppression của trình duyệt để không bị thuật toán cắt mất đuôi câu khi âm lượng giảm ở chữ cuối
-      let stream: MediaStream;
+      // Bật khử tiếng vọng phần cứng (echoCancellation) & lọc ồn (noiseSuppression),
+      // nhưng TẮT autoGainControl để giọng khô ráo, không bị vang dội và không bị ngắt chữ cuối câu
+      let rawStream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        rawStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
-            noiseSuppression: false,
-            autoGainControl: true,
+            noiseSuppression: true,
+            autoGainControl: false,
             channelCount: 1,
             sampleRate: 48000,
+            sampleSize: 16,
           },
         });
       } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        rawStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
 
-      localStreamRef.current = stream;
+      rawStreamRef.current = rawStream;
+      const studioStream = setupStudioAudioPipeline(rawStream);
+      localStreamRef.current = studioStream;
+
       setIsMicOn(true);
       onToast?.('🎙️ Micro đã BẬT - Cả khán phòng có thể nghe bạn nói!');
 
-      // Gửi trạng thái bật mic lên server
       if (socket?.connected) {
         socket.emit('user-mic-status', { isMicOn: true, isSpeaking: false });
       }
 
-      // Khởi động đo âm lượng để hiển thị icon đang nói
-      startAudioMeter(stream);
-
-      // Gắn track vào tất cả peer connection đã có hoặc tạo mới nếu chưa có
-      activeUsers.forEach((peer) => {
+      // Gắn track vào tất cả peer connection hoặc khởi tạo kết nối nếu cần
+      activeUsers.forEach(async (peer) => {
         if (!peer.socketId || peer.socketId === socketId) return;
         const pc = peerConnectionsRef.current.get(peer.socketId);
         if (pc) {
-          attachLocalStreamToPC(pc, stream);
+          await attachLocalStreamToPC(pc, studioStream);
+          const audioTransceiver = pc
+            .getTransceivers()
+            .find((t) => t.receiver?.track?.kind === 'audio');
+          if (!audioTransceiver || audioTransceiver.currentDirection !== 'sendrecv') {
+            initiateOffer(peer.socketId);
+          }
         } else {
           initiateOffer(peer.socketId);
         }
@@ -461,7 +585,7 @@ export function useVoiceChat({
     turnOffMic,
     onToast,
     socket,
-    startAudioMeter,
+    setupStudioAudioPipeline,
     activeUsers,
     socketId,
     initiateOffer,
@@ -544,8 +668,20 @@ export function useVoiceChat({
           await pc.setRemoteDescription(new RTCSessionDescription(offer));
           await flushPendingCandidates(from, pc);
 
+          // Đảm bảo transceiver do setRemoteDescription tạo ra luôn ở chế độ 2 chiều sendrecv
+          const audioTransceiver = pc
+            .getTransceivers()
+            .find((t) => t.receiver?.track?.kind === 'audio');
+          if (audioTransceiver && audioTransceiver.direction !== 'sendrecv') {
+            try {
+              audioTransceiver.direction = 'sendrecv';
+            } catch {
+              // ignore
+            }
+          }
+
           if (localStreamRef.current) {
-            attachLocalStreamToPC(pc, localStreamRef.current);
+            await attachLocalStreamToPC(pc, localStreamRef.current);
           }
 
           // Kiểm tra chặt chẽ signalingState trước khi gọi setLocalDescription(answer)
