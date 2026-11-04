@@ -102,14 +102,6 @@ function CinemaStandbyScreen({
     >
       {/* Keyframe animations cho màn hình động của rạp */}
       <style>{`
-        @keyframes cgvSpinSlow {
-          from { transform: translate(-50%, -50%) rotate(0deg); }
-          to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        @keyframes cgvSpinReverse {
-          from { transform: translate(-50%, -50%) rotate(360deg); }
-          to { transform: translate(-50%, -50%) rotate(0deg); }
-        }
         @keyframes cgvAuraPulse {
           0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(1); }
           50% { opacity: 0.75; transform: translate(-50%, -50%) scale(1.12); }
@@ -118,17 +110,9 @@ function CinemaStandbyScreen({
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.035); }
         }
-        @keyframes cgvDotPulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(0.85); }
-        }
         @keyframes cgvBeamSweep {
           0%, 100% { opacity: 0.18; transform: rotate(-5deg) scaleX(1); }
           50% { opacity: 0.38; transform: rotate(5deg) scaleX(1.15); }
-        }
-        @keyframes cgvWave {
-          0%, 100% { height: 6px; opacity: 0.35; }
-          50% { height: 28px; opacity: 0.95; }
         }
         @keyframes cgvParticleFloat {
           0% { transform: translateY(0px) translateX(0px); opacity: 0.2; }
@@ -326,7 +310,7 @@ function CinemaStandbyScreen({
         )}
       </div>
 
-      {/* 5. Chân màn hình chờ - Sóng âm thanh nhảy chuyển động & Tín hiệu rạp */}
+      {/* 5. Chân màn hình chờ - Tín hiệu rạp */}
       <div
         style={{
           width: '100%',
@@ -338,22 +322,6 @@ function CinemaStandbyScreen({
       >
         <div style={{ fontSize: '12px', color: '#64748b', letterSpacing: '0.1em' }}>
           CGV CINEMAS · KẾT NỐI ĐIỆN ẢNH VÀ TRẢI NGHIỆM ĐẲNG CẤP
-        </div>
-
-        {/* Dải Equalizer sóng âm thanh chuyển động */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', height: '32px' }}>
-          {[...Array(24)].map((_, i) => (
-            <div
-              key={i}
-              style={{
-                width: '4px',
-                borderRadius: '9999px',
-                backgroundColor: i % 3 === 0 ? '#d8f95f' : i % 2 === 0 ? '#38bdf8' : '#fbbf24',
-                animation: 'cgvWave 1.4s ease-in-out infinite',
-                animationDelay: `${(i * 0.08).toFixed(2)}s`,
-              }}
-            />
-          ))}
         </div>
 
         <div style={{ fontSize: '12px', color: '#64748b', letterSpacing: '0.1em' }}>
