@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React from 'react';
 import * as THREE from 'three';
 
 interface WeTubeStageProps {
@@ -115,14 +114,6 @@ function StageLectern({ x, z }: { x: number; z: number }) {
 const FOOTLIGHT_X = [-10.5, -7.5, -4.5, -1.5, 1.5, 4.5, 7.5, 10.5];
 
 export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
-  const discoBallRef = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    if (discoBallRef.current) {
-      discoBallRef.current.rotation.y += delta * 0.4;
-    }
-  });
-
   const stageDepth = 5.2;
   const stageCenterZ = screenZ + stageDepth / 2;
   const stageFrontZ = screenZ + stageDepth;
@@ -163,28 +154,7 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
       <SpeakerTower x={-17.4} z={screenZ + 1.2} side={-1} />
       <SpeakerTower x={17.2} z={screenZ + 1.2} side={1} />
 
-      {/* 3. Trái châu (Quả cầu gương disco) treo trên cao phía trước màn chiếu - KHÔNG BỊ KHUẤT */}
-      <group ref={discoBallRef} position={[0, 18.0, screenZ + 3.4]}>
-        {/* Dây cáp treo thả từ trần rạp (Y=19) xuống quả cầu */}
-        <mesh position={[0, 0.52, 0]}>
-          <cylinderGeometry args={[0.015, 0.015, 1.05, 8]} />
-          <meshStandardMaterial color="#94a3b8" metalness={0.9} />
-        </mesh>
-        {/* Quả cầu gương lấp lánh phản chiếu ánh sáng */}
-        <mesh>
-          <sphereGeometry args={[0.6, 24, 24]} />
-          <meshStandardMaterial
-            color="#e2e8f0"
-            metalness={0.95}
-            roughness={0.12}
-            emissive="#64748b"
-            emissiveIntensity={0.5}
-          />
-        </mesh>
-        <pointLight color="#fdf4ff" intensity={10} distance={15} decay={2} />
-      </group>
-
-      {/* 4. Thiết bị sân khấu chuyên nghiệp (Thay thế 3 người đứng rối mắt): */}
+      {/* 3. Thiết bị sân khấu chuyên nghiệp: */}
       {/* Hai loa kiểm âm sân khấu vát góc chuyên nghiệp hai bên cánh sân khấu */}
       <StageMonitorWedge x={-5.2} z={stageFrontZ - 0.9} rotationY={0.35} />
       <StageMonitorWedge x={5.2} z={stageFrontZ - 0.9} rotationY={-0.35} />
