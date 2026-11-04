@@ -65,15 +65,15 @@ export function CinemaScene({
     <>
       <color attach="background" args={['#05070b']} />
 
-      {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; cho phép lăn chuột / trackpad 2 ngón để zoom in/out */}
+      {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; cho phép lăn chuột / trackpad 2 ngón để zoom in/out mượt mà, độ nhạy vừa phải */}
       <OrbitControls
         ref={controlsRef}
         target={OVERVIEW_CAMERA.target}
         enableDamping
-        dampingFactor={0.12}
+        dampingFactor={0.08}
         rotateSpeed={0.85}
         enableZoom={true}
-        zoomSpeed={1.1}
+        zoomSpeed={0.3}
         minDistance={6}
         maxDistance={48}
         enablePan={false}

@@ -10,10 +10,10 @@ interface ExitSignProps {
 
 /**
  * Biển báo EXIT đèn LED dạ quang mẫu mới (Nền đen tuyền, không nẹp nhôm, chữ & hình xanh lá dạ quang nổi bật)
- * Đi kèm cụm cửa thoát hiểm khẩn cấp đặt ngay cạnh màn chiếu IMAX (giữa màn chiếu và cột loa trái).
+ * Đi kèm cụm cửa thoát hiểm khẩn cấp đặt ngay cạnh màn chiếu IMAX (nâng cao lên trên mặt sàn sân khấu).
  */
 export function ExitSign({
-  position = [-15.0, 3.8, -10.8],
+  position = [-15.0, 5.0, -10.8],
   isDimmed = true,
 }: ExitSignProps) {
   const [diffuseTex, emissiveTex, glowTex] = useMemo(() => {
@@ -44,42 +44,44 @@ export function ExitSign({
   }, []);
 
   const [posX, posY, posZ] = position;
+  const doorCenterY = 2.7;
+  const doorHeight = 3.6;
 
   return (
     <group>
-      {/* 1. Cửa thoát hiểm khẩn cấp bên dưới biển EXIT */}
-      <group position={[posX, 1.6, posZ - 0.05]}>
+      {/* 1. Cửa thoát hiểm khẩn cấp bên dưới biển EXIT (Nâng cao đế lên mặt sàn sân khấu Y=0.9m) */}
+      <group position={[posX, doorCenterY, posZ - 0.05]}>
         {/* Khung cửa thép than chì chịu lực */}
         <mesh>
-          <boxGeometry args={[1.88, 3.28, 0.07]} />
+          <boxGeometry args={[1.92, doorHeight, 0.08]} />
           <meshStandardMaterial color="#0b0f14" roughness={0.65} metalness={0.4} />
         </mesh>
 
         {/* Hai cánh cửa thoát hiểm đóng kín với khe hở kỹ thuật */}
-        <mesh position={[-0.45, 0, 0.02]}>
-          <boxGeometry args={[0.88, 3.18, 0.04]} />
+        <mesh position={[-0.46, 0, 0.02]}>
+          <boxGeometry args={[0.9, doorHeight - 0.1, 0.04]} />
           <meshStandardMaterial color="#141c26" roughness={0.7} metalness={0.25} />
         </mesh>
-        <mesh position={[0.45, 0, 0.02]}>
-          <boxGeometry args={[0.88, 3.18, 0.04]} />
+        <mesh position={[0.46, 0, 0.02]}>
+          <boxGeometry args={[0.9, doorHeight - 0.1, 0.04]} />
           <meshStandardMaterial color="#141c26" roughness={0.7} metalness={0.25} />
         </mesh>
 
-        {/* Thanh đẩy thoát hiểm khẩn cấp màu đỏ / inox (Panic Crash Bar) */}
-        <group position={[0, -0.5, 0.07]}>
+        {/* Thanh đẩy thoát hiểm khẩn cấp màu đỏ / inox (Panic Crash Bar) ngang tầm tay */}
+        <group position={[0, -0.7, 0.07]}>
           <mesh>
-            <boxGeometry args={[1.6, 0.065, 0.05]} />
+            <boxGeometry args={[1.65, 0.075, 0.05]} />
             <meshStandardMaterial color="#dc2626" roughness={0.35} metalness={0.5} />
           </mesh>
           <mesh position={[0, 0, 0.022]}>
-            <boxGeometry args={[1.44, 0.02, 0.025]} />
+            <boxGeometry args={[1.48, 0.024, 0.025]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.15} metalness={0.95} />
           </mesh>
         </group>
 
-        {/* Gờ kim loại chân cửa */}
-        <mesh position={[0, -1.62, 0.035]}>
-          <boxGeometry args={[1.84, 0.035, 0.07]} />
+        {/* Gờ kim loại chân cửa tiếp giáp mặt sàn sân khấu */}
+        <mesh position={[0, -doorHeight / 2 + 0.02, 0.04]}>
+          <boxGeometry args={[1.88, 0.04, 0.08]} />
           <meshStandardMaterial color="#334155" roughness={0.4} metalness={0.8} />
         </mesh>
       </group>

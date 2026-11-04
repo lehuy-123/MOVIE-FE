@@ -43,7 +43,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       controlsTarget,
       apply: (c) => {
         c.enableZoom = true;
-        c.zoomSpeed = 1.0;
+        c.zoomSpeed = 0.3;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -73,7 +73,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       controlsTarget: look.clone(),
       apply: (c) => {
         c.enableZoom = true;
-        c.zoomSpeed = 1.1;
+        c.zoomSpeed = 0.3;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -103,7 +103,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       controlsTarget: look.clone(),
       apply: (c) => {
         c.enableZoom = true;
-        c.zoomSpeed = 1.1;
+        c.zoomSpeed = 0.3;
         c.enablePan = false;
         c.mouseButtons = {
           LEFT: THREE.MOUSE.ROTATE,
@@ -133,7 +133,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
     controlsTarget: look.clone(),
     apply: (c) => {
       c.enableZoom = true;
-      c.zoomSpeed = 1.1;
+      c.zoomSpeed = 0.3;
       c.enablePan = false;
       c.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
