@@ -6,12 +6,21 @@ import type { ClientToServerEvents, ServerToClientEvents, RoomUser } from '@/typ
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+    { urls: ['stun:stun.cloudflare.com:3478'] },
+    { urls: ['stun:global.stun.twilio.com:3478'] },
+    // Free OpenRelay TURN servers cho phép WebRTC vượt qua Symmetric NAT, tường lửa và mạng di động 4G/5G khi deploy Vercel
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
+  iceCandidatePoolSize: 4,
 };
 
 interface UseVoiceChatProps {
@@ -149,7 +158,15 @@ export function useVoiceChat({
           audio = document.createElement('audio');
           audio.autoplay = true;
           audio.setAttribute('playsinline', 'true');
-          audio.style.display = 'none';
+          audio.setAttribute('webkit-playsinline', 'true');
+          // Không dùng display: none vì mobile iOS/Android Safari sẽ ngắt audio hardware routing
+          audio.style.position = 'fixed';
+          audio.style.top = '-9999px';
+          audio.style.left = '-9999px';
+          audio.style.width = '1px';
+          audio.style.height = '1px';
+          audio.style.opacity = '0';
+          audio.style.pointerEvents = 'none';
           audio.setAttribute('data-peer-id', peerId);
           document.body.appendChild(audio);
           remoteAudiosRef.current.set(peerId, audio);
@@ -157,9 +174,26 @@ export function useVoiceChat({
 
         audio.srcObject = remoteStream;
         audio.volume = 1.0;
-        audio.play().catch((err) => {
-          console.warn(`[VoiceChat] Autoplay play() rejected for ${peerId}:`, err);
-        });
+        audio.muted = false;
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn(`[VoiceChat] Autoplay play() rejected for ${peerId} (will resume on touch):`, err);
+          });
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        try {
+          if (pc.signalingState !== 'stable') return;
+          const offer = await pc.createOffer();
+          if (pc.signalingState !== 'stable') return;
+          await pc.setLocalDescription(offer);
+          socket?.emit('webrtc-offer', { to: peerId, offer: pc.localDescription || offer });
+        } catch (err) {
+          console.warn(`[VoiceChat] onnegotiationneeded error with ${peerId}:`, err);
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -326,17 +360,17 @@ export function useVoiceChat({
       // Khởi động đo âm lượng để hiển thị icon đang nói
       startAudioMeter(stream);
 
-      // Gắn track vào tất cả peer connection và khởi tạo offer nếu chưa kết nối
+      // Gắn track vào tất cả peer connection và gửi offer cập nhật track âm thanh
       activeUsers.forEach(async (peer) => {
         if (!peer.socketId || peer.socketId === socketId) return;
         try {
           const pc = getOrCreatePeerConnection(peer.socketId);
           attachLocalStreamToPC(pc, stream);
 
-          if (pc.signalingState === 'stable' && pc.connectionState !== 'connected') {
+          if (pc.signalingState === 'stable') {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            socket?.emit('webrtc-offer', { to: peer.socketId, offer });
+            socket?.emit('webrtc-offer', { to: peer.socketId, offer: pc.localDescription || offer });
           }
         } catch (err) {
           console.warn(`[VoiceChat] Error initiating offer to ${peer.nickname}:`, err);
@@ -511,7 +545,7 @@ export function useVoiceChat({
     attachLocalStreamToPC,
   ]);
 
-  // Tự động phát lại audio nếu trình duyệt từng chặn autoplay trước khi có user gesture
+  // Tự động phát lại audio nếu trình duyệt (đặc biệt mobile iOS Safari / Android Chrome) chặn autoplay trước khi có user gesture
   useEffect(() => {
     const resumeAudioOnGesture = () => {
       remoteAudiosRef.current.forEach((audio) => {
@@ -524,11 +558,10 @@ export function useVoiceChat({
       }
     };
 
-    window.addEventListener('click', resumeAudioOnGesture);
-    window.addEventListener('keydown', resumeAudioOnGesture);
+    const gestureEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'] as const;
+    gestureEvents.forEach((ev) => window.addEventListener(ev, resumeAudioOnGesture, { passive: true }));
     return () => {
-      window.removeEventListener('click', resumeAudioOnGesture);
-      window.removeEventListener('keydown', resumeAudioOnGesture);
+      gestureEvents.forEach((ev) => window.removeEventListener(ev, resumeAudioOnGesture));
     };
   }, []);
 
