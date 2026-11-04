@@ -374,7 +374,7 @@ function FallingSnowParticles({ isDimmed }: { isDimmed: boolean }) {
 
 export function ChristmasDecorations({ isDimmed = true }: ChristmasDecorationsProps) {
   const halfW = ROOM.width / 2;
-  const wreathZPositions = [-6, 2, 10, 18];
+  const wreathZPositions = [-4, 4, 12, 20, 27];
   const stageFrontZ = -5.18;
 
   // Dải đèn led Giáng Sinh Đỏ - Vàng - Xanh dọc mép trước sân khấu & trên viền màn chiếu

@@ -6,7 +6,7 @@ import { ROOM, ROOM_DEPTH, ROOM_CENTER_Z } from '@/lib/roomLayout';
 import { AISLE_X_POSITIONS, ROW_Y_POSITIONS, ROW_Z_POSITIONS } from '@/lib/seatLayout';
 
 /** Dải đèn LED dọc trên tường bên: cách đều nhau 4m. */
-const STRIP_Z = [-8, -4, 0, 4, 8, 12, 16, 20];
+const STRIP_Z = [-8, -4, 0, 4, 8, 12, 16, 20, 24, 28];
 const ROW_DEPTH = 1.8;
 const RISER_WIDTH = 27;
 const HALF_W = ROOM.width / 2;
@@ -127,10 +127,10 @@ function SideWall({ side, glow, isDimmed }: { side: -1 | 1; glow: THREE.Texture;
 
       {/* 1 Đèn rọi tường ấm gộp chung mỗi bên (Tối ưu GPU cực cao, thay thế 5 đèn riêng lẻ) */}
       <pointLight
-        position={[wallX + inward * 1.8, 8.5, 6.0]}
+        position={[wallX + inward * 1.8, 8.5, 9.0]}
         color="#ffb866"
         intensity={isDimmed ? 4.0 : 36}
-        distance={isDimmed ? 18 : 26}
+        distance={isDimmed ? 20 : 28}
         decay={1.6}
       />
     </group>
@@ -198,7 +198,7 @@ export function CinemaRoom({ isDimmed = true }: { isDimmed?: boolean }) {
       })()}
 
       {/* Tường trước (sau màn chiếu) */}
-      <mesh geometry={frontWallPlaneGeo} position={[0, ROOM.height / 2, ROOM.zFront]}>
+      <mesh geometry={frontWallPlaneGeo} position={[0, ROOM.height / 2, ROOM.zFront]} renderOrder={-3}>
         <meshStandardMaterial color="#0e151e" roughness={0.9} />
       </mesh>
       {/* Tường sau: một mặt, hướng vào trong */}

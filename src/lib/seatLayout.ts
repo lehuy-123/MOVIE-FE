@@ -16,9 +16,14 @@ export const COL_X_POSITIONS = [-10.5, -8.6, -6.7, -2.85, -0.95, 0.95, 2.85, 6.7
 /** Hai lối đi rộng rãi giữa các cụm ghế (x). */
 export const AISLE_X_POSITIONS = [-4.78, 4.78];
 
-export const ROW_Z_POSITIONS = [-1.0, 0.8, 2.6, 4.4, 6.2, 8.0, 9.8, 11.6, 13.4, 15.2];
+/**
+ * Lùi toàn bộ 10 hàng ghế (A..J) xa màn chiếu (Hàng A bắt đầu tại z = 8.6m, cách màn hình IMAX 19.0m)
+ * giúp ngay cả hàng ghế đầu tiên (A01..A10) cũng nhìn thấy trọn vẹn 4 góc màn hình và phụ đề
+ * mà không bị thanh điều khiển dưới hay thanh trạng thái trên che khuất trên laptop & điện thoại.
+ */
+export const ROW_Z_POSITIONS = [8.6, 10.4, 12.2, 14.0, 15.8, 17.6, 19.4, 21.2, 23.0, 24.8];
 
-export const ROW_Y_POSITIONS = [0.2, 0.45, 0.7, 0.95, 1.2, 1.45, 1.7, 1.95, 2.2, 2.45];
+export const ROW_Y_POSITIONS = [1.1, 1.4, 1.7, 2.0, 2.3, 2.6, 2.9, 3.2, 3.5, 3.8];
 
 export type SeatKind = NonNullable<SeatData['type']>;
 

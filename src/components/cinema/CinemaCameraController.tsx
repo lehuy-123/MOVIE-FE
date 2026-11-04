@@ -5,6 +5,7 @@ import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { SeatData } from '@/types/cinema';
 import { OVERVIEW_CAMERA, SCREEN } from '@/lib/roomLayout';
+import { COL_X_POSITIONS, ROW_Y_POSITIONS, ROW_Z_POSITIONS } from '@/lib/seatLayout';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 export type CameraMode = 'overview' | 'seat' | 'screen' | 'audience';
@@ -30,8 +31,13 @@ const FPV_DISTANCE = 0.05;
 
 function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
   if (mode === 'seat' && seat) {
-    const eye = new THREE.Vector3(seat.position[0], seat.position[1] + 1.5, seat.position[2] + 0.05);
-    const look = new THREE.Vector3(0, SCREEN.y - 1, SCREEN.z);
+    // Luôn lấy tọa độ 3D mới nhất từ seatLayout để tránh giữ tọa độ cũ trong state khi HMR
+    const liveX = COL_X_POSITIONS[seat.col] ?? seat.position[0];
+    const liveY = ROW_Y_POSITIONS[seat.row] ?? seat.position[1];
+    const liveZ = ROW_Z_POSITIONS[seat.row] ?? seat.position[2];
+
+    const eye = new THREE.Vector3(liveX, liveY + 1.5, liveZ + 0.05);
+    const look = new THREE.Vector3(0, SCREEN.y - 0.5, SCREEN.z);
     const dir = look.clone().sub(eye).normalize();
     const controlsTarget = eye.clone().addScaledVector(dir, FPV_DISTANCE);
     // Góc cầu của vector (camera - target) = -dir
@@ -57,10 +63,10 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         c.rotateSpeed = -0.35; // kéo chuột trái = quay đầu quanh ghế
         c.minDistance = FPV_DISTANCE;
         c.maxDistance = FPV_DISTANCE * 20;
-        c.minPolarAngle = Math.max(0.3, polar - 0.5);
-        c.maxPolarAngle = Math.min(2.9, polar + 0.45);
-        c.minAzimuthAngle = azimuth - 1.1;
-        c.maxAzimuthAngle = azimuth + 1.1;
+        c.minPolarAngle = Math.max(0.25, polar - 0.55);
+        c.maxPolarAngle = Math.min(2.9, polar + 0.55);
+        c.minAzimuthAngle = azimuth - 1.35;
+        c.maxAzimuthAngle = azimuth + 1.35;
       },
     };
   }
@@ -68,7 +74,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
   if (mode === 'screen') {
     const look = new THREE.Vector3(0, SCREEN.y, SCREEN.z);
     return {
-      position: new THREE.Vector3(0, 6.5, 9),
+      position: new THREE.Vector3(0, 7.2, 13.5),
       look,
       controlsTarget: look.clone(),
       apply: (c) => {
@@ -86,7 +92,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         };
         c.rotateSpeed = 0.5;
         c.minDistance = 4;
-        c.maxDistance = 32;
+        c.maxDistance = 38;
         c.minPolarAngle = 0.8;
         c.maxPolarAngle = 1.55;
         c.minAzimuthAngle = -0.7;
@@ -96,7 +102,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
   }
 
   if (mode === 'audience') {
-    const look = new THREE.Vector3(0, 2.8, 12);
+    const look = new THREE.Vector3(0, 3.2, 17.5);
     return {
       position: new THREE.Vector3(0, 3.6, -4.2),
       look,
@@ -116,7 +122,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
         };
         c.rotateSpeed = 0.5;
         c.minDistance = 4;
-        c.maxDistance = 28;
+        c.maxDistance = 35;
         c.minPolarAngle = 1.0;
         c.maxPolarAngle = 1.8;
         c.minAzimuthAngle = -Infinity;
@@ -146,7 +152,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       };
       c.rotateSpeed = 0.85;
       c.minDistance = 8;
-      c.maxDistance = 50;
+      c.maxDistance = 60;
       c.minPolarAngle = 0.7;
       c.maxPolarAngle = 1.52;
       c.minAzimuthAngle = -0.6;
@@ -157,7 +163,7 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
 
 // Giới hạn pan nhẹ ở chế độ overview
 const PAN_MIN = new THREE.Vector3(-6, 1.5, -6);
-const PAN_MAX = new THREE.Vector3(6, 9, 8);
+const PAN_MAX = new THREE.Vector3(6, 9, 17);
 
 export function CinemaCameraController({ mode, selectedSeat, controlsRef, resetKey = 0 }: CinemaCameraControllerProps) {
   const { camera } = useThree();
@@ -170,9 +176,9 @@ export function CinemaCameraController({ mode, selectedSeat, controlsRef, resetK
   const tempClampedRef = useRef(new THREE.Vector3());
   const tempDeltaRef = useRef(new THREE.Vector3());
 
-  // Chỉ chuyển cảnh lại khi đổi chế độ hoặc đổi ghế ở chế độ ngồi
+  // Chỉ chuyển cảnh lại khi đổi chế độ hoặc đổi ghế ở chế độ ngồi (hoặc khi dãy ghế thay đổi vị trí)
   const baseKey = mode === 'seat' && selectedSeat ? `seat:${selectedSeat.id}` : mode === 'seat' ? 'overview' : mode;
-  const poseKey = `${baseKey}#${resetKey}`;
+  const poseKey = `${baseKey}#${resetKey}#z${ROW_Z_POSITIONS[0]}`;
 
   useEffect(() => {
     const effectiveMode: CameraMode = mode === 'seat' && !selectedSeat ? 'overview' : mode;

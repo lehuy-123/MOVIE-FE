@@ -9,7 +9,7 @@ interface AudienceCeilingDownlightsProps {
 
 // 12 Đèn downlight âm trần phân bố đều trên trần rạp chiếu thẳng xuống các hàng ghế
 const DOWNLIGHT_X = [-6.5, 0.0, 6.5];
-const DOWNLIGHT_Z = [1.5, 6.5, 11.5, 16.5];
+const DOWNLIGHT_Z = [10.0, 15.0, 20.0, 25.0];
 
 /**
  * Hệ thống đèn trần chiếu rọi từ trên cao xuống các hàng ghế ngồi (Audience Ceiling Downlights).
@@ -54,14 +54,14 @@ export function AudienceCeilingDownlights({ isDimmed = true }: AudienceCeilingDo
 
       {/* 2 Nguồn sáng rọi trần gộp chung (Tối ưu GPU cực cao, thay thế 12 đèn riêng lẻ) */}
       <pointLight
-        position={[0, CEILING_Y - 1.0, 5.0]}
+        position={[0, CEILING_Y - 1.0, 13.5]}
         color="#fef3c7"
         intensity={isDimmed ? 1.5 : 32}
         distance={28}
         decay={1.6}
       />
       <pointLight
-        position={[0, CEILING_Y - 1.0, 13.0]}
+        position={[0, CEILING_Y - 1.0, 22.0]}
         color="#fef3c7"
         intensity={isDimmed ? 1.5 : 32}
         distance={28}

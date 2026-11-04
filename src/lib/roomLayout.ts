@@ -4,8 +4,8 @@ export const ROOM = {
   height: 19,
   /** Tường phía sau màn chiếu */
   zFront: -11,
-  /** Tường phía sau hàng ghế cuối */
-  zBack: 21,
+  /** Tường phía sau hàng ghế cuối (mở rộng về sau tương ứng khi lùi các hàng ghế) */
+  zBack: 30.5,
 } as const;
 
 export const ROOM_DEPTH = ROOM.zBack - ROOM.zFront;
@@ -21,7 +21,7 @@ export const SCREEN = {
 
 /** Góc nhìn bao quát từ trên cao phía sau (high-angle / isometric). */
 export const OVERVIEW_CAMERA = {
-  position: [0, 14.5, 26] as [number, number, number],
-  target: [0, 5.0, -1] as [number, number, number],
+  position: [0, 16.0, 35.5] as [number, number, number],
+  target: [0, 5.5, 4.0] as [number, number, number],
   fov: 55,
 } as const;

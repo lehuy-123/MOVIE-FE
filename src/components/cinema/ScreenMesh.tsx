@@ -213,7 +213,7 @@ export function ScreenMesh({
     <group ref={groupRef} position={position} rotation={rotation} name="imax-flat-screen-rig">
       {/* 0. Vệt sáng hào quang vàng ấm dịu mắt toả ra xung quanh màn chiếu hắt lên tường rạp */}
       {haloTex && (
-        <mesh position={[0, (bezelThickness - bottomBezelHeight) / 4, -0.15]}>
+        <mesh position={[0, (bezelThickness - bottomBezelHeight) / 4, -0.15]} renderOrder={-2}>
           <planeGeometry args={[width + 3.8, height + 2.8]} />
           <meshBasicMaterial
             map={haloTex}
@@ -228,7 +228,7 @@ export function ScreenMesh({
 
       {/* 1. Khung viền màn chiếu phẳng IMAX nguyên bản (Cinema Bezel) */}
       {/* Khung sau màn hình */}
-      <mesh position={[0, 0, -0.07]}>
+      <mesh position={[0, 0, -0.1]} renderOrder={-2}>
         <boxGeometry args={[width + 0.6, height + 0.6, 0.14]} />
         <meshStandardMaterial color="#0a0e17" roughness={0.6} metalness={0.5} />
       </mesh>
@@ -310,15 +310,23 @@ export function ScreenMesh({
         />
       </mesh>
 
-      {/* 2. Mặt nền màn chiếu phẳng khi chưa bật video */}
-      <mesh position={[0, 0, 0]}>
+      {/* 2. Mặt cắt Depth-Cutout trong suốt (Zero-Alpha Hole Punch):
+          Ghi độ sâu z = -10.4 vào Depth Buffer và mở vùng trong suốt cho lớp CinemaScreenOverlay phía dưới,
+          đồng thời giúp mọi vật thể 3D phía trước màn hình (kẹo gậy, người tuyết, sân khấu, ghế, avatar)
+          luôn hiển thị nổi phía trước màn hình một cách chân thực. */}
+      <mesh position={[0, 0, 0]} renderOrder={-1}>
         <planeGeometry args={[width, height]} />
-        <meshStandardMaterial
-          color="#050608"
-          roughness={0.2}
-          metalness={0.1}
-          emissive="#0b1320"
-          emissiveIntensity={isPlaying ? 0.15 : 0.05}
+        <meshBasicMaterial
+          color="#000000"
+          opacity={0}
+          blending={THREE.CustomBlending}
+          blendEquation={THREE.AddEquation}
+          blendSrc={THREE.ZeroFactor}
+          blendDst={THREE.ZeroFactor}
+          blendSrcAlpha={THREE.ZeroFactor}
+          blendDstAlpha={THREE.ZeroFactor}
+          depthWrite={true}
+          depthTest={true}
         />
       </mesh>
 

@@ -272,6 +272,7 @@ function CinemaStandbyScreen({
         {onOpenAddVideo && (
           <button
             type="button"
+            data-screen-clickable="true"
             onClick={onOpenAddVideo}
             style={{
               padding: '14px 36px',
@@ -1034,6 +1035,7 @@ export const CinemaScreenOverlay = forwardRef<
                   href={`https://www.youtube.com/watch?v=${currentId}`}
                   target="_blank"
                   rel="noreferrer"
+                  data-screen-clickable="true"
                   style={{
                     padding: '12px 24px',
                     borderRadius: '9999px',
@@ -1052,6 +1054,7 @@ export const CinemaScreenOverlay = forwardRef<
                 </a>
                 {onOpenAddVideo && (
                   <button
+                    data-screen-clickable="true"
                     onClick={onOpenAddVideo}
                     style={{
                       padding: '12px 26px',
@@ -1073,6 +1076,7 @@ export const CinemaScreenOverlay = forwardRef<
           ) : !isWaiting && !hasStarted ? (
             /* 2. Click to start / unmute overlay if autoplay was blocked */
             <div
+              data-screen-clickable="true"
               onClick={() => {
                 setHasStarted(true);
                 setLocalPlaying(true);

@@ -65,8 +65,6 @@ export function CinemaScene({
 
   return (
     <>
-      <color attach="background" args={['#05070b']} />
-
       {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; cho phép lăn chuột / trackpad 2 ngón để zoom in/out mượt mà, độ nhạy vừa phải */}
       <OrbitControls
         ref={controlsRef}
@@ -121,7 +119,7 @@ export function CinemaScene({
 
       {/* 4. Đèn rọi khán phòng trước (Front Auditorium Twilight Fill - dịu nhẹ vừa đủ thấy hàng ghế) */}
       <pointLight
-        position={[0, 11, 6]}
+        position={[0, 11, 10]}
         color="#fed7aa"
         intensity={isDimmed ? 14 : 45}
         distance={35}
@@ -130,7 +128,7 @@ export function CinemaScene({
 
       {/* 5. Đèn rọi khán phòng sau (Rear Auditorium Fill - Dịu nhẹ, không làm lóa lưng ghế) */}
       <pointLight
-        position={[0, 13, 18]}
+        position={[0, 13, 22]}
         color="#fde68a"
         intensity={isDimmed ? 10 : 35}
         distance={30}

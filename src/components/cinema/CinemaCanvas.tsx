@@ -153,6 +153,7 @@ export default function CinemaCanvas({
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
 
   const screenRef = useRef<CinemaScreenOverlayHandle | null>(null);
+  const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Khôi phục cài đặt âm lượng & mute từ localStorage
   const [volume, setVolume] = useState<number>(() => {
@@ -684,43 +685,71 @@ export default function CinemaCanvas({
         onOpenAdminLogin={() => setIsAdminLoginModalOpen(true)}
       />
 
-      {/* 5. Three.js WeTube Ciné 3D Scene */}
+      {/* 5. Three.js WeTube Ciné 3D Scene (z-index: 6 nổi trên CinemaScreenOverlay z-index: 5, dùng Depth-Cutout cho vùng màn chiếu) */}
       <CinemaErrorBoundary>
-        <Canvas
-          camera={{ position: OVERVIEW_CAMERA.position, fov: OVERVIEW_CAMERA.fov, near: 0.1, far: 220 }}
-          gl={{
-            antialias: true,
-            powerPreference: 'high-performance',
-            alpha: false,
-            stencil: false,
-            depth: true,
+        <div
+          className="relative z-[6] w-full h-full"
+          onPointerDown={(e) => {
+            pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
           }}
-          dpr={[1, 1.25]}
-          performance={{ min: 0.5 }}
-          className="w-full h-full"
+          onPointerMove={(e) => {
+            const hits = document.elementsFromPoint(e.clientX, e.clientY);
+            const hasClickable = hits.some((el) => el.closest?.('[data-screen-clickable="true"]'));
+            if (hasClickable) {
+              document.body.style.cursor = 'pointer';
+            } else if (document.body.style.cursor === 'pointer') {
+              document.body.style.cursor = 'auto';
+            }
+          }}
+          onClick={(e) => {
+            const down = pointerDownPosRef.current;
+            if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+            const hits = document.elementsFromPoint(e.clientX, e.clientY);
+            for (const el of hits) {
+              const clickable = el.closest?.('[data-screen-clickable="true"]') as HTMLElement | null;
+              if (clickable) {
+                clickable.click();
+                break;
+              }
+            }
+          }}
         >
-          <Suspense fallback={null}>
-            <CinemaScene
-              selectedSeat={selectedSeat}
-              occupiedSeats={occupiedSeats}
-              users={activeUsers}
-              activeBubbles={activeBubbles}
-              currentSocketId={socketId}
-              currentUserNickname={userProfile.nickname}
-              currentUserShirtColor={userProfile.shirtColor}
-              currentUserIsAdmin={isHost}
-              currentUserIsMicOn={isMicOn}
-              currentUserIsSpeaking={isSpeaking}
-              currentUserIsMicMuted={isMicMuted}
-              isDimmed={isDimmed}
-              isPlaying={roomState?.status !== 'paused'}
-              cameraMode={cameraMode}
-              cameraResetKey={cameraResetKey}
-              onSelectSeat={handleSelectSeat}
-              onScreenTransform={handleScreenTransform}
-            />
-          </Suspense>
-        </Canvas>
+          <Canvas
+            camera={{ position: OVERVIEW_CAMERA.position, fov: OVERVIEW_CAMERA.fov, near: 0.1, far: 220 }}
+            gl={{
+              antialias: true,
+              powerPreference: 'high-performance',
+              alpha: true,
+              stencil: false,
+              depth: true,
+            }}
+            dpr={[1, 1.25]}
+            performance={{ min: 0.5 }}
+            className="w-full h-full"
+          >
+            <Suspense fallback={null}>
+              <CinemaScene
+                selectedSeat={selectedSeat}
+                occupiedSeats={occupiedSeats}
+                users={activeUsers}
+                activeBubbles={activeBubbles}
+                currentSocketId={socketId}
+                currentUserNickname={userProfile.nickname}
+                currentUserShirtColor={userProfile.shirtColor}
+                currentUserIsAdmin={isHost}
+                currentUserIsMicOn={isMicOn}
+                currentUserIsSpeaking={isSpeaking}
+                currentUserIsMicMuted={isMicMuted}
+                isDimmed={isDimmed}
+                isPlaying={roomState?.status !== 'paused'}
+                cameraMode={cameraMode}
+                cameraResetKey={cameraResetKey}
+                onSelectSeat={handleSelectSeat}
+                onScreenTransform={handleScreenTransform}
+              />
+            </Suspense>
+          </Canvas>
+        </div>
       </CinemaErrorBoundary>
 
       {/* 6. Onboarding 2 bước: Nhập tên & Áo → Chọn ghế */}
