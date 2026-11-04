@@ -23,6 +23,35 @@ const ICE_SERVERS: RTCConfiguration = {
   iceCandidatePoolSize: 4,
 };
 
+/**
+ * Tối ưu hoá SDP của Opus để giọng nói truyền đi liên tục 100%,
+ * tắt usedtx để không bao giờ bị ngắt hay nuốt các chữ cuối câu.
+ */
+function optimizeOpusSdp(sdp: string): string {
+  if (!sdp) return sdp;
+  return sdp.replace(/a=fmtp:(\d+)(?:[^\r\n]*)/g, (line, pt) => {
+    if (line.includes('minptime') || line.includes('useinbandfec') || sdp.includes(`a=rtpmap:${pt} opus/48000`)) {
+      let params = line.slice(`a=fmtp:${pt} `.length);
+      // Tắt DTX (Discontinuous Transmission): truyền âm thanh liên tục không ngắt quãng
+      params = params.replace(/usedtx=[01]/g, '').replace(/;;+/g, ';');
+      if (!params.includes('usedtx=0')) {
+        params += ';usedtx=0';
+      }
+      if (!params.includes('useinbandfec=1')) {
+        params += ';useinbandfec=1';
+      }
+      if (!params.includes('cbr=1')) {
+        params += ';cbr=1';
+      }
+      if (!params.includes('maxaveragebitrate=')) {
+        params += ';maxaveragebitrate=64000';
+      }
+      return `a=fmtp:${pt} ${params.replace(/^;|;$/g, '')}`;
+    }
+    return line;
+  });
+}
+
 interface UseVoiceChatProps {
   socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
   socketId: string | null;
@@ -45,6 +74,8 @@ export function useVoiceChat({
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const peerActionQueuesRef = useRef<Map<string, Promise<void>>>(new Map());
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const remoteAudiosRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -52,7 +83,21 @@ export function useVoiceChat({
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSpeakingRef = useRef(false);
 
-  // Gắn hoặc thay thế audio track một cách an toàn (tránh lỗi duplicate sender/addTrack)
+  // Hàng đợi tuần tự (FIFO) cho mỗi peer để tránh xung đột async race condition khi xử lý offer/answer
+  const enqueuePeerAction = useCallback((peerId: string, action: () => Promise<void>) => {
+    const currentQueue = peerActionQueuesRef.current.get(peerId) || Promise.resolve();
+    const nextQueue = currentQueue
+      .then(async () => {
+        await action();
+      })
+      .catch((err) => {
+        console.warn(`[VoiceChat] Error in peer queue action for ${peerId}:`, err);
+      });
+    peerActionQueuesRef.current.set(peerId, nextQueue);
+    return nextQueue;
+  }, []);
+
+  // Gắn hoặc thay thế audio track an toàn qua replaceTrack (tránh renegotiation gián đoạn âm thanh)
   const attachLocalStreamToPC = useCallback((pc: RTCPeerConnection, stream: MediaStream | null) => {
     if (!pc || pc.connectionState === 'closed') return;
     const audioTrack = stream?.getAudioTracks()[0] || null;
@@ -78,7 +123,9 @@ export function useVoiceChat({
     if (queue && queue.length > 0) {
       for (const cand of queue) {
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(cand));
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
         } catch (err) {
           console.warn(`[VoiceChat] Error adding queued candidate from ${peerId}:`, err);
         }
@@ -89,6 +136,10 @@ export function useVoiceChat({
 
   // Dọn dẹp một peer connection và thẻ audio tương ứng
   const cleanupPeer = useCallback((peerId: string) => {
+    makingOfferRef.current.delete(peerId);
+    peerActionQueuesRef.current.delete(peerId);
+    pendingCandidatesRef.current.delete(peerId);
+
     const pc = peerConnectionsRef.current.get(peerId);
     if (pc) {
       try {
@@ -98,7 +149,6 @@ export function useVoiceChat({
       }
       peerConnectionsRef.current.delete(peerId);
     }
-    pendingCandidatesRef.current.delete(peerId);
 
     const audio = remoteAudiosRef.current.get(peerId);
     if (audio) {
@@ -159,7 +209,6 @@ export function useVoiceChat({
           audio.autoplay = true;
           audio.setAttribute('playsinline', 'true');
           audio.setAttribute('webkit-playsinline', 'true');
-          // Không dùng display: none vì mobile iOS/Android Safari sẽ ngắt audio hardware routing
           audio.style.position = 'fixed';
           audio.style.top = '-9999px';
           audio.style.left = '-9999px';
@@ -172,27 +221,18 @@ export function useVoiceChat({
           remoteAudiosRef.current.set(peerId, audio);
         }
 
-        audio.srcObject = remoteStream;
+        // Chỉ gán lại nếu stream khác để không làm gián đoạn buffer audio đang phát
+        if (audio.srcObject !== remoteStream) {
+          audio.srcObject = remoteStream;
+        }
         audio.volume = 1.0;
         audio.muted = false;
 
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn(`[VoiceChat] Autoplay play() rejected for ${peerId} (will resume on touch):`, err);
+          playPromise.catch(() => {
+            // Sẽ tự động resume khi người dùng click hoặc chạm màn hình
           });
-        }
-      };
-
-      pc.onnegotiationneeded = async () => {
-        try {
-          if (pc.signalingState !== 'stable') return;
-          const offer = await pc.createOffer();
-          if (pc.signalingState !== 'stable') return;
-          await pc.setLocalDescription(offer);
-          socket?.emit('webrtc-offer', { to: peerId, offer: pc.localDescription || offer });
-        } catch (err) {
-          console.warn(`[VoiceChat] onnegotiationneeded error with ${peerId}:`, err);
         }
       };
 
@@ -209,6 +249,35 @@ export function useVoiceChat({
     [socket, cleanupPeer, attachLocalStreamToPC]
   );
 
+  // Tạo offer gửi đến peer một cách an toàn
+  const initiateOffer = useCallback(
+    async (peerId: string) => {
+      await enqueuePeerAction(peerId, async () => {
+        const pc = getOrCreatePeerConnection(peerId);
+        if (pc.signalingState !== 'stable') return;
+
+        try {
+          makingOfferRef.current.set(peerId, true);
+          if (localStreamRef.current) {
+            attachLocalStreamToPC(pc, localStreamRef.current);
+          }
+          const offer = await pc.createOffer();
+          const enhancedOffer: RTCSessionDescriptionInit = {
+            type: offer.type,
+            sdp: optimizeOpusSdp(offer.sdp || ''),
+          };
+          await pc.setLocalDescription(enhancedOffer);
+          socket?.emit('webrtc-offer', { to: peerId, offer: pc.localDescription || enhancedOffer });
+        } catch (err) {
+          console.warn(`[VoiceChat] Error initiating offer to ${peerId}:`, err);
+        } finally {
+          makingOfferRef.current.set(peerId, false);
+        }
+      });
+    },
+    [enqueuePeerAction, getOrCreatePeerConnection, attachLocalStreamToPC, socket]
+  );
+
   // Tắt hẳn mic và thu hồi các track
   const turnOffMic = useCallback(() => {
     if (localStreamRef.current) {
@@ -218,7 +287,7 @@ export function useVoiceChat({
       localStreamRef.current = null;
     }
 
-    // Mute transmission on all active peer connections
+    // Mute transmission on all active peer connections seamlessly using replaceTrack(null)
     peerConnectionsRef.current.forEach((pc) => {
       attachLocalStreamToPC(pc, null);
     });
@@ -271,7 +340,7 @@ export function useVoiceChat({
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.3;
+        analyser.smoothingTimeConstant = 0.25;
         source.connect(analyser);
         analyserRef.current = analyser;
 
@@ -289,7 +358,8 @@ export function useVoiceChat({
             voiceEnergy += dataArray[i];
           }
           const avg = voiceEnergy / (maxBin - 2);
-          const isLoud = avg > 12; // Ngưỡng nói chuyện chuẩn xác, nhạy và tự nhiên
+          // Ngưỡng nhạy (> 8) để bắt trọn cả những chữ cuối nói nhỏ hoặc thì thầm
+          const isLoud = avg > 8;
 
           if (isLoud) {
             if (!isSpeakingRef.current) {
@@ -304,6 +374,7 @@ export function useVoiceChat({
               speakingTimerRef.current = null;
             }
           } else if (isSpeakingRef.current && !speakingTimerRef.current) {
+            // Giữ trạng thái nói 1200ms để không bị ngắt quãng giữa các từ hay cuối câu
             speakingTimerRef.current = setTimeout(() => {
               isSpeakingRef.current = false;
               setIsSpeaking(false);
@@ -311,7 +382,7 @@ export function useVoiceChat({
               if (socket?.connected) {
                 socket.emit('user-mic-status', { isMicOn: true, isSpeaking: false });
               }
-            }, 400);
+            }, 1200);
           }
 
           animationFrameRef.current = requestAnimationFrame(checkVolume);
@@ -340,13 +411,21 @@ export function useVoiceChat({
 
     try {
       setMicError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      // TẮT noiseSuppression của trình duyệt để không bị thuật toán cắt mất đuôi câu khi âm lượng giảm ở chữ cuối
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: false,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 48000,
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
 
       localStreamRef.current = stream;
       setIsMicOn(true);
@@ -360,20 +439,14 @@ export function useVoiceChat({
       // Khởi động đo âm lượng để hiển thị icon đang nói
       startAudioMeter(stream);
 
-      // Gắn track vào tất cả peer connection và gửi offer cập nhật track âm thanh
-      activeUsers.forEach(async (peer) => {
+      // Gắn track vào tất cả peer connection đã có hoặc tạo mới nếu chưa có
+      activeUsers.forEach((peer) => {
         if (!peer.socketId || peer.socketId === socketId) return;
-        try {
-          const pc = getOrCreatePeerConnection(peer.socketId);
+        const pc = peerConnectionsRef.current.get(peer.socketId);
+        if (pc) {
           attachLocalStreamToPC(pc, stream);
-
-          if (pc.signalingState === 'stable') {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket?.emit('webrtc-offer', { to: peer.socketId, offer: pc.localDescription || offer });
-          }
-        } catch (err) {
-          console.warn(`[VoiceChat] Error initiating offer to ${peer.nickname}:`, err);
+        } else {
+          initiateOffer(peer.socketId);
         }
       });
     } catch (err: unknown) {
@@ -391,7 +464,7 @@ export function useVoiceChat({
     startAudioMeter,
     activeUsers,
     socketId,
-    getOrCreatePeerConnection,
+    initiateOffer,
     attachLocalStreamToPC,
   ]);
 
@@ -399,29 +472,18 @@ export function useVoiceChat({
   useEffect(() => {
     if (!socket || !socketId) return;
 
-    activeUsers.forEach(async (peer) => {
+    activeUsers.forEach((peer) => {
       if (!peer.socketId || peer.socketId === socketId) return;
 
-      // Deterministic initiator rule (tránh xung đột hai bên cùng gửi offer đồng thời)
       const isInitiator = socketId < peer.socketId;
       const pc = peerConnectionsRef.current.get(peer.socketId);
 
       // Nếu chưa có kết nối và là initiator, tạo kết nối và gửi offer ban đầu
       if (!pc && isInitiator) {
-        try {
-          const newPc = getOrCreatePeerConnection(peer.socketId);
-          if (localStreamRef.current) {
-            attachLocalStreamToPC(newPc, localStreamRef.current);
-          }
-          const offer = await newPc.createOffer();
-          await newPc.setLocalDescription(offer);
-          socket.emit('webrtc-offer', { to: peer.socketId, offer });
-        } catch (err) {
-          console.warn(`[VoiceChat] Error linking with new peer ${peer.nickname}:`, err);
-        }
+        initiateOffer(peer.socketId);
       }
     });
-  }, [activeUsers, socket, socketId, getOrCreatePeerConnection, attachLocalStreamToPC]);
+  }, [activeUsers, socket, socketId, initiateOffer]);
 
   // Lắng nghe sự kiện cấm mic từ Admin
   useEffect(() => {
@@ -449,7 +511,7 @@ export function useVoiceChat({
     }
   }, [isMicMutedByAdmin, isMicOn, turnOffMic]);
 
-  // Lắng nghe WebRTC Signaling (Offers, Answers, Candidates)
+  // Lắng nghe WebRTC Signaling (Offers, Answers, Candidates) với cơ chế Perfect Negotiation & Queue
   useEffect(() => {
     if (!socket) return;
 
@@ -460,32 +522,48 @@ export function useVoiceChat({
       from: string;
       offer: RTCSessionDescriptionInit;
     }) => {
-      try {
-        const pc = getOrCreatePeerConnection(from);
+      enqueuePeerAction(from, async () => {
+        try {
+          const pc = getOrCreatePeerConnection(from);
+          const isPolite = socketId ? socketId < from : false;
+          const isMakingOffer = Boolean(makingOfferRef.current.get(from));
+          const offerCollision = offer.type === 'offer' && (isMakingOffer || pc.signalingState !== 'stable');
 
-        // Xử lý glare: nếu đang trong trạng thái chờ offer từ local
-        const isPolite = socketId ? socketId < from : false;
-        if (pc.signalingState !== 'stable') {
-          if (!isPolite) {
-            console.log(`[VoiceChat] Glare detected, ignoring offer from ${from}`);
-            return;
+          if (offerCollision) {
+            if (!isPolite) {
+              console.log(`[VoiceChat] Impolite peer ignoring colliding offer from ${from}`);
+              return;
+            }
+            try {
+              await pc.setLocalDescription({ type: 'rollback' });
+            } catch (err) {
+              console.warn(`[VoiceChat] Rollback notice for ${from}:`, err);
+            }
           }
-          await pc.setLocalDescription({ type: 'rollback' });
+
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          await flushPendingCandidates(from, pc);
+
+          if (localStreamRef.current) {
+            attachLocalStreamToPC(pc, localStreamRef.current);
+          }
+
+          // Kiểm tra chặt chẽ signalingState trước khi gọi setLocalDescription(answer)
+          if (pc.signalingState === 'have-remote-offer') {
+            const answer = await pc.createAnswer();
+            const enhancedAnswer: RTCSessionDescriptionInit = {
+              type: answer.type,
+              sdp: optimizeOpusSdp(answer.sdp || ''),
+            };
+            await pc.setLocalDescription(enhancedAnswer);
+            socket.emit('webrtc-answer', { to: from, answer: pc.localDescription || enhancedAnswer });
+          } else {
+            console.warn(`[VoiceChat] Skipped answer creation for ${from}: state is ${pc.signalingState}`);
+          }
+        } catch (err) {
+          console.warn(`[VoiceChat] Error handling offer from ${from}:`, err);
         }
-
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        await flushPendingCandidates(from, pc);
-
-        if (localStreamRef.current) {
-          attachLocalStreamToPC(pc, localStreamRef.current);
-        }
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('webrtc-answer', { to: from, answer });
-      } catch (err) {
-        console.warn(`[VoiceChat] Error handling offer from ${from}:`, err);
-      }
+      });
     };
 
     const handleAnswer = async ({
@@ -495,15 +573,17 @@ export function useVoiceChat({
       from: string;
       answer: RTCSessionDescriptionInit;
     }) => {
-      try {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc && pc.signalingState === 'have-local-offer') {
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
-          await flushPendingCandidates(from, pc);
+      enqueuePeerAction(from, async () => {
+        try {
+          const pc = peerConnectionsRef.current.get(from);
+          if (pc && pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            await flushPendingCandidates(from, pc);
+          }
+        } catch (err) {
+          console.warn(`[VoiceChat] Error handling answer from ${from}:`, err);
         }
-      } catch (err) {
-        console.warn(`[VoiceChat] Error handling answer from ${from}:`, err);
-      }
+      });
     };
 
     const handleCandidate = async ({
@@ -513,19 +593,20 @@ export function useVoiceChat({
       from: string;
       candidate: RTCIceCandidateInit;
     }) => {
-      try {
-        const pc = peerConnectionsRef.current.get(from);
-        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } else {
-          // Lưu vào hàng đợi nếu remote description chưa sẵn sàng
-          const list = pendingCandidatesRef.current.get(from) || [];
-          list.push(candidate);
-          pendingCandidatesRef.current.set(from, list);
+      enqueuePeerAction(from, async () => {
+        try {
+          const pc = peerConnectionsRef.current.get(from);
+          if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            const list = pendingCandidatesRef.current.get(from) || [];
+            list.push(candidate);
+            pendingCandidatesRef.current.set(from, list);
+          }
+        } catch (err) {
+          console.warn(`[VoiceChat] Error adding ICE candidate from ${from}:`, err);
         }
-      } catch (err) {
-        console.warn(`[VoiceChat] Error adding ICE candidate from ${from}:`, err);
-      }
+      });
     };
 
     socket.on('webrtc-offer', handleOffer);
@@ -540,6 +621,7 @@ export function useVoiceChat({
   }, [
     socket,
     socketId,
+    enqueuePeerAction,
     getOrCreatePeerConnection,
     flushPendingCandidates,
     attachLocalStreamToPC,
@@ -588,6 +670,8 @@ export function useVoiceChat({
       });
       peerConnectionsRef.current.clear();
       pendingCandidatesRef.current.clear();
+      peerActionQueuesRef.current.clear();
+      makingOfferRef.current.clear();
 
       remoteAudiosRef.current.forEach((audio) => {
         try {

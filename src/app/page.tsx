@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Clapperboard } from 'lucide-react';
 
 // Dynamic import for WebGL Canvas to prevent SSR hydration issues
 const CinemaCanvas = dynamic(
@@ -9,19 +8,61 @@ const CinemaCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#07090e] text-white">
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#06080d] text-white select-none">
+        {/* Vầng hào quang đỏ ấm phía sau logo CGV */}
         <div className="relative flex items-center justify-center mb-6">
-          <div className="h-20 w-20 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin" />
-          <div className="absolute flex items-center justify-center h-12 w-12 rounded-xl bg-blue-600/30 text-blue-400">
-            <Clapperboard className="h-6 w-6 animate-pulse" />
+          <div
+            className="absolute w-36 h-36 rounded-full pointer-events-none"
+            style={{
+              background: 'radial-gradient(circle, rgba(237, 49, 36, 0.35) 0%, rgba(245, 158, 11, 0.12) 50%, transparent 75%)',
+              filter: 'blur(20px)',
+              animation: 'pulse 2.5s ease-in-out infinite',
+            }}
+          />
+
+          {/* Vòng quay loading tinh tế mang phong cách điện ảnh CGV */}
+          <div className="h-28 w-28 rounded-full border-2 border-red-500/15 border-t-red-500 border-r-amber-400/60 animate-spin" />
+
+          {/* Logo CGV chính hãng phát sáng ở trung tâm */}
+          <div className="absolute flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/cgv-logo.png"
+              alt="CGV Cinema Logo"
+              className="h-9 w-auto object-contain drop-shadow-[0_0_16px_rgba(237,49,36,0.85)]"
+              style={{
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
           </div>
         </div>
-        <h2 className="text-xl font-bold tracking-wider text-slate-100 mb-1">
-          CGV CINEMA
+
+        {/* Tiêu đề thương hiệu CGV */}
+        <h2 className="text-base sm:text-lg font-black tracking-[0.22em] text-white uppercase mb-2">
+          CJ CGV · IMAX CINEMA
         </h2>
-        <p className="text-sm text-slate-400 font-mono">
+
+        {/* Dòng chữ trạng thái */}
+        <p className="text-xs text-slate-400 font-mono tracking-wide mb-4">
           Đang khởi tạo không gian rạp chiếu 3D...
         </p>
+
+        {/* Thanh progress bar phát sáng đỏ */}
+        <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden relative">
+          <div
+            className="absolute inset-y-0 left-0 w-24 rounded-full bg-gradient-to-r from-red-600 via-red-500 to-amber-400 shadow-[0_0_10px_rgba(237,49,36,0.8)]"
+            style={{
+              animation: 'cgvBarMove 1.6s ease-in-out infinite',
+            }}
+          />
+        </div>
+
+        <style>{`
+          @keyframes cgvBarMove {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+          }
+        `}</style>
       </div>
     ),
   }
