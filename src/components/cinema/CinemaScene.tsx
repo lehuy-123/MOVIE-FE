@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef } from 'react';
+import * as THREE from 'three';
 import { OrbitControls } from '@react-three/drei';
 import { ScreenMesh } from './ScreenMesh';
 import { WeTubeSeatGrid, OccupiedSeatInfo } from './WeTubeSeatGrid';
@@ -63,14 +64,24 @@ export function CinemaScene({
     <>
       <color attach="background" args={['#05070b']} />
 
-      {/* Camera: mặc định góc cao bao quát từ phía sau; thao tác vuốt/xoay cực mượt 60 FPS */}
+      {/* Camera: chỉ cho phép xoay khi nhấn giữ chuột trái; không cho chuột phải, con lăn hay trackpad vô tình làm dịch chuyển góc nhìn */}
       <OrbitControls
         ref={controlsRef}
         target={OVERVIEW_CAMERA.target}
         enableDamping
         dampingFactor={0.12}
         rotateSpeed={0.85}
-        panSpeed={0.8}
+        enableZoom={false}
+        enablePan={false}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: -1 as any,
+          RIGHT: -1 as any,
+        }}
+        touches={{
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: -1 as any,
+        }}
       />
       <CinemaCameraController
         mode={cameraMode}

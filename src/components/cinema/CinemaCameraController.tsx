@@ -44,7 +44,16 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       apply: (c) => {
         c.enableZoom = false;
         c.enablePan = false;
-        c.rotateSpeed = -0.35; // kéo chuột = quay đầu quanh ghế
+        c.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: -1 as any,
+          RIGHT: -1 as any,
+        };
+        c.touches = {
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: -1 as any,
+        };
+        c.rotateSpeed = -0.35; // kéo chuột trái = quay đầu quanh ghế
         c.minDistance = FPV_DISTANCE;
         c.maxDistance = FPV_DISTANCE;
         c.minPolarAngle = Math.max(0.3, polar - 0.5);
@@ -62,8 +71,17 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       look,
       controlsTarget: look.clone(),
       apply: (c) => {
-        c.enableZoom = true;
+        c.enableZoom = false;
         c.enablePan = false;
+        c.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: -1 as any,
+          RIGHT: -1 as any,
+        };
+        c.touches = {
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: -1 as any,
+        };
         c.rotateSpeed = 0.5;
         c.minDistance = 6;
         c.maxDistance = 26;
@@ -82,8 +100,17 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
       look,
       controlsTarget: look.clone(),
       apply: (c) => {
-        c.enableZoom = true;
+        c.enableZoom = false;
         c.enablePan = false;
+        c.mouseButtons = {
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: -1 as any,
+          RIGHT: -1 as any,
+        };
+        c.touches = {
+          ONE: THREE.TOUCH.ROTATE,
+          TWO: -1 as any,
+        };
         c.rotateSpeed = 0.5;
         c.minDistance = 6;
         c.maxDistance = 24;
@@ -95,19 +122,25 @@ function buildPose(mode: CameraMode, seat: SeatData | null): Pose {
     };
   }
 
-  // Overview: góc cao bao quát từ phía sau, zoom/pan nhẹ
+  // Overview: góc cao bao quát từ phía sau
   const look = new THREE.Vector3(...OVERVIEW_CAMERA.target);
   return {
     position: new THREE.Vector3(...OVERVIEW_CAMERA.position),
     look,
     controlsTarget: look.clone(),
     apply: (c) => {
-      c.enableZoom = true;
-      c.enablePan = true;
-      c.screenSpacePanning = true;
-      c.rotateSpeed = 0.5;
-      c.panSpeed = 0.6;
-      c.zoomSpeed = 0.7;
+      c.enableZoom = false;
+      c.enablePan = false;
+      c.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: -1 as any,
+        RIGHT: -1 as any,
+      };
+      c.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: -1 as any,
+      };
+      c.rotateSpeed = 0.85;
       c.minDistance = 12;
       c.maxDistance = 40;
       c.minPolarAngle = 0.7;
