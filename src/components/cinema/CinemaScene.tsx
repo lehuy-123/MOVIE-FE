@@ -157,6 +157,7 @@ export function CinemaScene({
         currentUserIsMicMuted={currentUserIsMicMuted}
         activeBubbles={activeBubbles}
         currentSocketId={currentSocketId}
+        isDimmed={isDimmed}
         onSelectSeat={onSelectSeat}
       />
 

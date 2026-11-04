@@ -32,11 +32,8 @@ const seatBackShellMat = new THREE.MeshStandardMaterial({
   metalness: 0.15,
 });
 
-// Nhãn số/mác xám nhỏ trên lưng ghế sáng rõ
-const seatTagMat = new THREE.MeshStandardMaterial({
-  color: '#94a3b8',
-  roughness: 0.3,
-});
+// Hình học logo thương hiệu CGV dùng chung cho tất cả 100 ghế
+const cgvLogoGeo = new THREE.PlaneGeometry(0.34, 0.17);
 
 const seatSelectedMat = new THREE.MeshStandardMaterial({
   color: '#d9f95f',
@@ -69,6 +66,7 @@ interface WeTubeSeatGridProps {
   currentUserIsMicMuted?: boolean;
   activeBubbles?: ChatMessage[];
   currentSocketId?: string | null;
+  isDimmed?: boolean;
 }
 
 export function WeTubeSeatGrid({
@@ -83,6 +81,7 @@ export function WeTubeSeatGrid({
   currentUserIsMicMuted = false,
   activeBubbles = [],
   currentSocketId,
+  isDimmed = true,
 }: WeTubeSeatGridProps) {
   // Ghế thời gian thực dựa trên kết nối người dùng thật trong phòng
   const seats: SeatData[] = useMemo(() => {
@@ -124,6 +123,77 @@ export function WeTubeSeatGrid({
     });
     return list;
   }, [selectedSeatId, occupiedSeats, currentUserNickname, currentUserShirtColor]);
+
+  // Tạo vật liệu logo thương hiệu CGV sắc nét (vẽ Canvas khởi tạo tức thì + nạp cgv-logo.png chuẩn thương hiệu)
+  const cgvLogoMat = useMemo(() => {
+    if (typeof document === 'undefined') {
+      return new THREE.MeshBasicMaterial();
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const drawFallback = () => {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, 512, 256);
+      ctx.fillStyle = '#ed3124';
+      ctx.font = '900 130px "Arial Black", "Impact", "Montserrat", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('CGV', 50, 138);
+
+      const cx = 415;
+      const cy = 70;
+      const petals = 6;
+      for (let i = 0; i < petals; i++) {
+        const angle = (i * Math.PI * 2) / petals;
+        const px = cx + Math.cos(angle) * 26;
+        const py = cy + Math.sin(angle) * 26;
+        ctx.beginPath();
+        ctx.arc(px, py, 9, 0, Math.PI * 2);
+        ctx.fillStyle = i % 2 === 0 ? '#f26f21' : '#ed3124';
+        ctx.fill();
+      }
+    };
+
+    drawFallback();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = 8;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = '/cgv-logo.png';
+    img.onload = () => {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, 512, 256);
+      const aspect = img.width / img.height;
+      const targetH = 210;
+      const targetW = targetH * aspect;
+      const offsetX = (512 - targetW) / 2;
+      const offsetY = (256 - targetH) / 2;
+      ctx.drawImage(img, offsetX, offsetY, targetW, targetH);
+      texture.needsUpdate = true;
+    };
+
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.12,
+      roughness: 0.45,
+      metalness: 0.1,
+      emissive: isDimmed ? '#000000' : '#ed3124',
+      emissiveMap: isDimmed ? null : texture,
+      emissiveIntensity: isDimmed ? 0 : 0.08,
+      side: THREE.FrontSide,
+    });
+  }, [isDimmed]);
 
   return (
     <group name="wetube-seat-grid">
@@ -177,12 +247,11 @@ export function WeTubeSeatGrid({
                 position={[0, 0.72, 0.405]}
                 scale={[1.06, 0.60, 0.02]}
               />
-              {/* Mác/nhãn số ghế màu xám trên lưng ghế */}
+              {/* Logo thương hiệu CGV sắc nét sau lưng mỗi ghế */}
               <mesh
-                geometry={seatBoxGeo}
-                material={seatTagMat}
-                position={[0, 0.88, 0.418]}
-                scale={[0.34, 0.09, 0.01]}
+                geometry={cgvLogoGeo}
+                material={cgvLogoMat}
+                position={[0, 0.86, 0.420]}
               />
               {/* Tay vịn hai bên rộng rãi */}
               <mesh geometry={seatBoxGeo} material={seatLegMat} position={[-0.56, 0.54, 0.02]} scale={[0.08, 0.08, 0.58]} />
