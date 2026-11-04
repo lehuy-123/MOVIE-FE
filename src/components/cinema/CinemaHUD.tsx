@@ -8,10 +8,8 @@ import {
   Crown,
   Film,
   Plus,
-  Image as ImageIcon,
   ListVideo,
   MessageSquare,
-  Sparkles,
   Flag,
   Heart,
   Maximize2,
@@ -27,7 +25,6 @@ import {
   Users,
   Smile,
   Send,
-  FastForward,
   Check,
   Monitor,
   Expand,
@@ -36,7 +33,6 @@ import {
   Lock,
   Subtitles,
   SlidersHorizontal,
-  Shirt,
   Coffee,
   Lightbulb,
   LightbulbOff,
@@ -256,12 +252,6 @@ export function CinemaHUD({
   const chatLogRef = useRef<HTMLDivElement>(null);
   const [seenChatCount, setSeenChatCount] = useState(0);
 
-  // Vote bỏ qua
-  const [votes, setVotes] = useState(initialVotes);
-  const [hasVoted, setHasVoted] = useState(false);
-  const needed = Math.max(1, Math.ceil(onlineCount * 0.35));
-  const votePct = Math.min(100, Math.round((votes / needed) * 100));
-
   // Tiến độ video
   const [time, setTime] = useState({ cur: 0, dur: 0 });
 
@@ -274,11 +264,6 @@ export function CinemaHUD({
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
-
-  useEffect(() => {
-    setVotes(initialVotes);
-    setHasVoted(false);
-  }, [videoKey, initialVotes]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -360,13 +345,6 @@ export function CinemaHUD({
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
     else document.exitFullscreen().catch(() => {});
-  };
-
-  const handleVote = () => {
-    if (hasVoted) return;
-    setHasVoted(true);
-    setVotes((v) => v + 1);
-    onVoteSkip?.();
   };
 
   const submitChat = (e?: React.FormEvent) => {
@@ -471,32 +449,6 @@ export function CinemaHUD({
                 />
               </div>
             </div>
-
-            <button
-              id="hud-vote-skip"
-              type="button"
-              onClick={handleVote}
-              disabled={hasVoted}
-              className={`mt-1 flex w-fit items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold backdrop-blur-xl transition active:scale-95 ${
-                hasVoted
-                  ? 'border-[#d8f95f]/60 bg-[#d8f95f]/15 text-[#d8f95f]'
-                  : 'border-white/20 bg-black/35 text-white hover:border-[#d8f95f]/60'
-              }`}
-            >
-              {hasVoted ? <Check className="h-4 w-4" /> : <FastForward className="h-4 w-4" />}
-              Vote bỏ qua {votes}/{needed}
-            </button>
-            <div className="h-[3px] w-[190px] overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-[#d8f95f] transition-[width] duration-500"
-                style={{ width: `${votePct}%` }}
-              />
-            </div>
-            <p className="text-[10px] leading-relaxed text-white/45">
-              {votes}/{onlineCount} người thật đồng ý · {Math.round((votes / Math.max(1, onlineCount)) * 100)}%
-              <br />
-              Đủ 35% thì chuyển bài
-            </p>
           </div>
         </div>
 
@@ -654,11 +606,6 @@ export function CinemaHUD({
                 onClick={onOpenAddVideo}
               />
               <DockButton
-                icon={<ImageIcon className="h-[18px] w-[18px]" />}
-                label="Chiếu ảnh"
-                onClick={() => (onProjectImage ? onProjectImage() : showToast('Chiếu ảnh lên màn sẽ sớm có mặt!'))}
-              />
-              <DockButton
                 icon={<ListVideo className="h-[18px] w-[18px]" />}
                 label="Hàng chờ"
                 badge={queueCount && queueCount > 0 ? queueCount : undefined}
@@ -670,31 +617,6 @@ export function CinemaHUD({
                 badge={unread > 0 ? (unread > 99 ? '99+' : unread) : undefined}
                 active={dockPanel === 'chat'}
                 onClick={() => toggleDock('chat')}
-              />
-              <DockButton
-                icon={<Sparkles className="h-[18px] w-[18px]" />}
-                label="Tương tác"
-                active={dockPanel === 'react'}
-                onClick={() => toggleDock('react')}
-              />
-              <DockButton
-                icon={<Shirt className="h-[18px] w-[18px]" />}
-                label="Tủ đồ"
-                onClick={onOpenProfile}
-              />
-              <DockButton
-                icon={
-                  isMicMuted ? (
-                    <MicOff className="h-[18px] w-[18px] text-rose-400" />
-                  ) : isMicOn ? (
-                    <Mic className={`h-[18px] w-[18px] ${isSpeaking ? 'text-emerald-400 animate-pulse' : 'text-emerald-300'}`} />
-                  ) : (
-                    <MicOff className="h-[18px] w-[18px]" />
-                  )
-                }
-                label={isMicMuted ? 'Bị cấm mic' : isMicOn ? (isSpeaking ? 'Đang nói...' : 'Tắt Mic') : 'Bật Mic'}
-                tone={isMicMuted ? 'rose' : isMicOn ? 'lime' : 'default'}
-                onClick={onToggleMic}
               />
             </>
           )}
