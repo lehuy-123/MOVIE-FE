@@ -11,42 +11,42 @@ interface WeTubeStageProps {
 const SPEAKER_X = 15.6;
 const WOOFER_Y = [-2.8, -0.6, 1.6];
 
-/** Loa cột đứng cao ~9.6m, 3 màng loa trầm + bảng hiển thị trạng thái phía trên */
+/** Loa cột đứng cao ~8.8m, 3 màng loa trầm + bảng hiển thị trạng thái phía trên */
 function SpeakerTower({ x, z, side }: { x: number; z: number; side: -1 | 1 }) {
   return (
-    <group position={[x, 5.7, z]} rotation={[0, side * -0.12, 0]}>
+    <group position={[x, 5.2, z]} rotation={[0, side * -0.15, 0]}>
       {/* Vỏ thùng loa đen nhám */}
       <mesh>
-        <boxGeometry args={[2.4, 9.6, 2.6]} />
+        <boxGeometry args={[1.8, 8.8, 1.8]} />
         <meshStandardMaterial color="#090b0f" roughness={0.45} metalness={0.55} />
       </mesh>
       {/* Viền mặt loa */}
-      <mesh position={[0, 0, 1.31]}>
-        <boxGeometry args={[2.1, 9.2, 0.03]} />
+      <mesh position={[0, 0, 0.91]}>
+        <boxGeometry args={[1.6, 8.4, 0.03]} />
         <meshStandardMaterial color="#12161d" roughness={0.6} />
       </mesh>
 
       {/* Bảng màn hình hiển thị trạng thái phía trên màng loa */}
-      <group position={[0, 3.65, 1.33]}>
+      <group position={[0, 3.2, 0.93]}>
         <mesh>
-          <boxGeometry args={[1.5, 0.5, 0.03]} />
+          <boxGeometry args={[1.2, 0.45, 0.03]} />
           <meshStandardMaterial color="#0b111a" roughness={0.3} metalness={0.8} />
         </mesh>
         <mesh position={[0, 0, 0.02]}>
-          <boxGeometry args={[1.35, 0.38, 0.01]} />
+          <boxGeometry args={[1.1, 0.35, 0.01]} />
           <meshBasicMaterial color="#1e293b" />
         </mesh>
       </group>
 
       {/* 3 màng loa trầm hình tròn */}
-      {WOOFER_Y.map((y, i) => (
-        <group key={`woofer-${i}`} position={[0, y, 1.33]}>
+      {[-2.5, -0.6, 1.3].map((y, i) => (
+        <group key={`woofer-${i}`} position={[0, y, 0.93]}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.76, 0.76, 0.05, 28]} />
+            <cylinderGeometry args={[0.62, 0.62, 0.05, 28]} />
             <meshStandardMaterial color="#1b2230" roughness={0.35} metalness={0.8} />
           </mesh>
           <mesh position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.28, 0.28, 0.05, 18]} />
+            <cylinderGeometry args={[0.22, 0.22, 0.05, 18]} />
             <meshStandardMaterial color="#3b4658" roughness={0.25} metalness={0.9} />
           </mesh>
         </group>
@@ -159,7 +159,9 @@ export function WeTubeStage({ screenZ = -10.4 }: WeTubeStageProps) {
         </group>
       ))}
 
-      {/* 2. Không gian hai bên màn chiếu thoáng đãng chuẩn rạp IMAX (Đã gỡ bỏ loa cột chắn tầm nhìn) */}
+      {/* 2. Hai loa cột đứng hai bên mép màn hình (Bố trí gọn gàng sát vách để không chắn cửa thoát hiểm) */}
+      <SpeakerTower x={-17.4} z={screenZ + 1.2} side={-1} />
+      <SpeakerTower x={17.2} z={screenZ + 1.2} side={1} />
 
       {/* 3. Trái châu (Quả cầu gương disco) treo trên cao phía trước màn chiếu - KHÔNG BỊ KHUẤT */}
       <group ref={discoBallRef} position={[0, 18.0, screenZ + 3.4]}>
