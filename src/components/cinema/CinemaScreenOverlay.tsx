@@ -195,34 +195,22 @@ function CinemaStandbyScreen({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
-            padding: '10px 24px',
+            justifyContent: 'center',
+            padding: '10px 28px',
             borderRadius: '9999px',
-            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
             backdropFilter: 'blur(10px)',
           }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#94a3b8' }}>
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 10px #10b981',
-              }}
-            />
-            HỆ THỐNG TRỰC TUYẾN
-          </span>
-          <span style={{ width: '1px', height: '14px', backgroundColor: 'rgba(255,255,255,0.2)' }} />
           <span
             style={{
-              fontSize: '14px',
-              fontWeight: 800,
+              fontSize: '24px',
+              fontWeight: 900,
               fontFamily: 'monospace',
-              color: '#d8f95f',
-              letterSpacing: '0.08em',
+              color: '#ffffff',
+              letterSpacing: '0.12em',
+              textShadow: '0 0 16px rgba(255, 255, 255, 0.35)',
             }}
           >
             {clock}
