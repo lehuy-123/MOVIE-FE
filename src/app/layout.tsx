@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '3D Virtual Cinema - Rạp Chiếu Phim Ảo Đa Người Dùng',
+  title: 'CGV Cinema',
   description:
-    'Rạp chiếu phim ảo 3D thời gian thực với màn chiếu YouTube 3D tương tác, Three.js, React Three Fiber và Next.js.',
+    'Rạp chiếu phim ảo 3D CGV Cinema thời gian thực với màn chiếu YouTube 3D tương tác.',
 };
 
 export default function RootLayout({

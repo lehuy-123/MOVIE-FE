@@ -90,7 +90,7 @@ export function RoomListModal({
     e.preventDefault();
     const num = newRoomNumber.trim() || (displayRooms.length + 1).toString().padStart(2, '0');
     const slug = `cinema-${num.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-    const name = newRoomName.trim() || `Rạp ${num} · wetube ciné`;
+    const name = newRoomName.trim() || `Rạp ${num} · CGV Cinema`;
 
     onCreateRoom?.(slug, name);
     onSelectRoom(slug);

@@ -17,7 +17,7 @@ const CinemaCanvas = dynamic(
           </div>
         </div>
         <h2 className="text-xl font-bold tracking-wider text-slate-100 mb-1">
-          3D VIRTUAL CINEMA
+          CGV CINEMA
         </h2>
         <p className="text-sm text-slate-400 font-mono">
           Đang khởi tạo không gian rạp chiếu 3D...

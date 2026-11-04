@@ -403,11 +403,15 @@ export function CinemaHUD({
             title="Bấm để xem danh sách rạp và đổi rạp"
             className={`flex w-fit items-center gap-3 rounded-2xl py-2 pl-2 pr-4 text-left transition hover:scale-[1.02] active:scale-[0.98] ${glass}`}
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff3b3b] to-[#d3122a] text-xl font-black leading-none text-white shadow-[0_6px_18px_-4px_rgba(239,35,60,0.7)]">
-              w
+            <div className="flex h-10 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#e71a0f] via-[#d11309] to-[#990b03] text-white shadow-[0_6px_20px_-3px_rgba(231,26,15,0.75)] border border-[#ff4d4d]/40">
+              <span className="font-black italic tracking-tighter text-[16px] leading-none select-none text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                CGV
+              </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-[17px] font-bold leading-none tracking-tight">wetube ciné</span>
+              <span className="text-[17px] font-black leading-none tracking-tight text-white drop-shadow-sm">
+                CGV Cinema
+              </span>
               <span className="mt-1 flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-[0.1em] text-[#d8f95f]">
                 {roomName || 'Rạp 01 · IMAX Star'} <ChevronDown className="h-3 w-3" />
               </span>
@@ -415,7 +419,6 @@ export function CinemaHUD({
           </button>
 
           <div className="hidden flex-col gap-2 pl-1 sm:flex">
-            <span className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-white/45">Trên màn ảnh</span>
             <h2 className="line-clamp-2 text-[17px] font-bold leading-snug tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               {videoTitle}
             </h2>
@@ -908,8 +911,8 @@ export function CinemaHUD({
           )}
         </div>
 
-        {/* Giữa: ô chat */}
-        <div data-hud-popover className="pointer-events-auto relative mx-auto w-full max-w-[520px] flex-1">
+        {/* Giữa: ô chat (thu gọn chiều ngang) */}
+        <div data-hud-popover className="pointer-events-auto relative mx-auto w-full max-w-[280px] sm:max-w-[320px] md:max-w-[340px]">
           {showEmoji && !isChatMuted && (
             <div className={`wt-step absolute bottom-full left-0 mb-3 flex flex-wrap gap-1 rounded-2xl p-2 ${glass}`}>
               {EMOJIS.map((emoji) => (
@@ -952,7 +955,7 @@ export function CinemaHUD({
               maxLength={160}
               disabled={isChatMuted}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={isChatMuted ? '🔇 Bạn đã bị Quản trị viên cấm chat trong phòng này!' : 'Nói gì với cả rạp đi...'}
+              placeholder={isChatMuted ? '🔇 Bạn đã bị cấm chat!' : 'Nói gì với cả rạp...'}
               className={`min-w-0 flex-1 bg-transparent text-[13px] focus:outline-none ${
                 isChatMuted ? 'text-rose-300 placeholder-rose-300/50 cursor-not-allowed' : 'text-white placeholder-white/35'
               }`}
@@ -986,8 +989,8 @@ export function CinemaHUD({
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
 
-          {/* Thanh tua thời gian ở thanh điều khiển đáy */}
-          <div className="hidden items-center gap-2 px-1 lg:flex">
+          {/* Thanh tua thời gian ở thanh điều khiển đáy (kéo dài thanh tua video ra) */}
+          <div className="flex items-center gap-2 px-1.5 sm:px-2">
             <span className="text-[10px] tabular-nums font-mono text-white/50">{formatTime(time.cur)}</span>
             <div className="relative flex items-center">
               <input
@@ -1005,7 +1008,7 @@ export function CinemaHUD({
                   onSeek?.(target);
                   screenRef.current?.seekTo(target);
                 }}
-                className={`h-1 w-20 xl:w-28 appearance-none rounded-full bg-white/20 accent-[#d8f95f] ${
+                className={`h-1.5 w-28 sm:w-48 md:w-64 lg:w-80 xl:w-[380px] appearance-none rounded-full bg-white/20 accent-[#d8f95f] transition-all hover:h-2 ${
                   canControl ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
                 }`}
                 aria-label="Tua video"
